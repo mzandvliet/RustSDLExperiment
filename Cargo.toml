@@ -1,0 +1,12 @@
+[package]
+name = "sdl"
+version = "0.1.0"
+authors = ["mzandvliet <martijn@ramjetanvil.com>"]
+edition = "2018"
+build = "build.rs"
+
+[dependencies]
+sdl2 = "0.32"
+
+[dependencies.gl]
+git = "https://github.com/bjz/gl-rs"
