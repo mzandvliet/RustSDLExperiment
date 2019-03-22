@@ -2,27 +2,20 @@
 extern crate sdl2;
 extern crate gl;
 
-use sdl2::rect::{Point, Rect};
+use sdl2::rect::{Rect};
 use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::event::Event;
-use sdl2::mouse::MouseButton;
 use sdl2::keyboard::Keycode;
-use sdl2::video::{Window, WindowContext};
-use sdl2::render::{Canvas, Texture, TextureCreator};
+use sdl2::render::{TextureCreator};
+use std::{thread, time};
 
 /* Todo:
-
-    - Let us efficiently draw individual pixels
-
-    https://docs.rs/sdl2/0.32.1/sdl2/render/struct.Canvas.html
-    Recommends *not* using canvas to draw individual pixels
-
-    Maybe through a texture, which we then blit to canvas?
+    - Refactor a bit
+    - Start writing some simple game rendering algorithms
 */
 
 
 fn main() {
-    //hello_sdl();
     do_game();
 }
 
@@ -30,12 +23,12 @@ fn do_game() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
 
-    const width: u32 = 640;
-    const height: u32 = 480;
-    const screen_buff_size: usize = (width * height * 3) as usize;
+    const WIDTH: u32 = 640;
+    const HEIGHT: u32 = 480;
+    const SCREEN_BUFF_SIZE: usize = (WIDTH * HEIGHT * 3) as usize;
 
     let window = video_subsystem
-        .window("rust-sdl-demo", width, height)
+        .window("rust-sdl-demo", WIDTH, HEIGHT)
         .position_centered()
         .build()
         .map_err(|e| e.to_string())?;
@@ -48,33 +41,30 @@ fn do_game() -> Result<(), String> {
 
     println!("Using SDL_Renderer \"{}\"", canvas.info().name);
 
+    // Clear screen before doing anything
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
     canvas.present();
 
-    let mut screen_buffer: [u8; screen_buff_size] = [0; screen_buff_size];
-    draw(&mut screen_buffer, width as usize, height as usize);
-
+    // Our screen buffer
+    let mut screen_buffer: [u8; SCREEN_BUFF_SIZE] = [0; SCREEN_BUFF_SIZE];
+    
+    // Texture used to blit our screen buffer to canvas
     let texture_creator : TextureCreator<_> = canvas.texture_creator();
-    let mut texture = texture_creator.create_texture_streaming(PixelFormatEnum::RGB24, width, height).map_err(|e| e.to_string())?;
-
-    texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
-        for i in 0..screen_buff_size {
-            buffer[i] = screen_buffer[i];
-        }
-    })?;  
+    let mut texture = texture_creator.create_texture_streaming(PixelFormatEnum::RGB24, WIDTH, HEIGHT).map_err(|e| e.to_string())?;
 
     let mut event_pump = sdl_context.event_pump()?;
     let mut frame : u32 = 0;
 
     'running: loop {
+        // Game simulation logic
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                     break 'running;
                 }
                 Event::KeyDown { keycode: Some(Keycode::Space), repeat: false, .. } => {
-                    //game.toggle_state();
+                    //do something
                 }
                 _ => {}
             }
@@ -85,25 +75,32 @@ fn do_game() -> Result<(), String> {
             frame = 0;
         }
 
+        // Rendering
+
+        // Clear
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
 
-        // Todo: render to texture, copy tex to canvas?
-        // I want to draw individual pixels so I can bresenham, do triangle rasterization, whatever
+        // Our rendering logic
+        draw(&mut screen_buffer, WIDTH as usize, HEIGHT as usize);
 
-        // get a texture from canvas' texture creator
-        // use texture.update(rect, pixeldata) to write from game data to texture
-        // use canvas.copy to blit texture to screen
-
-        let screen_rect = Rect::new(0,0,width,height);
+        // Blit screenbuffer to display through texture and canvas
+        texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+            for i in 0..SCREEN_BUFF_SIZE {
+                buffer[i] = screen_buffer[i];
+            }
+        })?;  
+        let screen_rect = Rect::new(0,0,WIDTH,HEIGHT);
         canvas.copy(&texture, screen_rect, screen_rect)?;
-
-        // canvas.set_draw_color(Color::RGB(255,0,0));
-        // canvas.fill_rect(Rect::new(10,10, 400, 200))?;
 
         canvas.present();
 
         frame += 1;
+
+        // Todo: measure time passed since last frame, use to finetune sleep timing
+        //let now = time::Instant::now;
+        let delta_time = time::Duration::from_millis(16);
+        thread::sleep(delta_time);
     }
 
     Ok(())
@@ -119,43 +116,4 @@ fn draw(buffer: &mut [u8], width: usize, height: usize) {
             buffer[offset +2] = 0;
         }
     }
-}
-
-
-// Hello SDL
-
-fn hello_sdl() {
-    println!("Hello, SDL!");
-
-    let gl = find_sdl_gl_driver().unwrap();
-
-    let sdl_context = sdl2::init().unwrap();
-    let video_subsystem = sdl_context.video().unwrap();
-    let window = video_subsystem.window("My Window", 640, 480)
-        .opengl()
-        .build()
-        .unwrap();
-    let mut canvas = window.into_canvas()
-        .index(gl)
-        .build()
-        .unwrap();
-
-    gl::load_with(|name| video_subsystem.gl_get_proc_address(name) as *const _);
-    canvas.window().gl_set_context_to_current().unwrap();
-
-    unsafe {
-        gl::ClearColor(0.6, 0.0, 0.8, 1.0);
-        gl::Clear(gl::COLOR_BUFFER_BIT);
-    }
-
-    canvas.present();
-}
-
-fn find_sdl_gl_driver() -> Option<u32> {
-    for (index, item) in sdl2::render::drivers().enumerate() {
-        if item.name == "opengl" {
-            return Some(index as u32);
-        }
-    }
-    None
 }
