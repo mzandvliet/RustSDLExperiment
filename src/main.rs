@@ -30,8 +30,9 @@ fn do_game() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
 
-    let width = 640;
-    let height = 480;
+    const width: u32 = 640;
+    const height: u32 = 480;
+    const screen_buff_size: usize = (width * height * 3) as usize;
 
     let window = video_subsystem
         .window("rust-sdl-demo", width, height)
@@ -51,17 +52,15 @@ fn do_game() -> Result<(), String> {
     canvas.clear();
     canvas.present();
 
+    let mut screen_buffer: [u8; screen_buff_size] = [0; screen_buff_size];
+    draw(&mut screen_buffer, width as usize, height as usize);
+
     let texture_creator : TextureCreator<_> = canvas.texture_creator();
     let mut texture = texture_creator.create_texture_streaming(PixelFormatEnum::RGB24, width, height).map_err(|e| e.to_string())?;
 
     texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
-        for y in 0..(height as usize) {
-            for x in 0..(width as usize) {
-                let offset = y * pitch + x * 3;
-                buffer[offset] = x as u8;
-                buffer[offset +1] = y as u8;
-                buffer[offset +2] = 0;
-            }
+        for i in 0..screen_buff_size {
+            buffer[i] = screen_buffer[i];
         }
     })?;  
 
@@ -108,6 +107,18 @@ fn do_game() -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn draw(buffer: &mut [u8], width: usize, height: usize) {
+    let pitch = width * 3;
+    for y in 0..height {
+        for x in 0..width {
+            let offset = y * pitch + x * 3;
+            buffer[offset] = x as u8;
+            buffer[offset +1] = y as u8;
+            buffer[offset +2] = 0;
+        }
+    }
 }
 
 
