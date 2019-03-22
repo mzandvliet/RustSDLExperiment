@@ -10,8 +10,21 @@ use sdl2::render::{TextureCreator};
 use std::{thread, time};
 
 /* Todo:
-    - Refactor a bit
+    - Optimize core pixel drawing process
     - Start writing some simple game rendering algorithms
+
+    On optimization:
+
+    The loops we're using to draw pixels into buffer, and to copy buffer, are hella slow
+    https://stackoverflow.com/questions/47542438/does-rusts-array-bounds-checking-affect-performance
+    https://llogiq.github.io/2017/06/01/perf-pitfalls.html
+
+    - Bounds checking might be killing it
+    - nested for-x for-y is cache-incoherent
+    - with a (u8,u8,u8) tuple for color you can divide amount of array accesses by 3 (can write as iterator?)
+    - Loop is a slow way to do a bitwise copy, can we not just memcpy to the texture while having it locked?
+    - Compile with optimization flag (--release) OH THAT MAKES A HUGE DIFFERENCE!
+
 */
 
 
@@ -81,15 +94,17 @@ fn do_game() -> Result<(), String> {
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
 
-        // Our rendering logic
+        // Our rendering logic (TODO: This is hella slow)
         draw(&mut screen_buffer, WIDTH as usize, HEIGHT as usize);
 
-        // Blit screenbuffer to display through texture and canvas
+        // Copy screenbuffer to texture (TODO: This is hella slow)
         texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
             for i in 0..SCREEN_BUFF_SIZE {
                 buffer[i] = screen_buffer[i];
             }
         })?;  
+
+        // Blit
         let screen_rect = Rect::new(0,0,WIDTH,HEIGHT);
         canvas.copy(&texture, screen_rect, screen_rect)?;
 
