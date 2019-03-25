@@ -95,7 +95,8 @@ fn do_game() -> Result<(), String> {
         canvas.clear();
 
         // Our rendering logic (TODO: This is hella slow)
-        draw(&mut screen_buffer, WIDTH as usize, HEIGHT as usize);
+        draw_gradient(&mut screen_buffer, WIDTH as usize, HEIGHT as usize);
+        draw_line(&mut screen_buffer, WIDTH as usize, HEIGHT as usize);
 
         // Copy screenbuffer to texture (TODO: This is hella slow)
         texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
@@ -121,7 +122,7 @@ fn do_game() -> Result<(), String> {
     Ok(())
 }
 
-fn draw(buffer: &mut [u8], width: usize, height: usize) {
+fn draw_gradient(buffer: &mut [u8], width: usize, height: usize) {
     let pitch = width * 3;
     for y in 0..height {
         for x in 0..width {
@@ -131,6 +132,48 @@ fn draw(buffer: &mut [u8], width: usize, height: usize) {
             buffer[offset +2] = 0;
         }
     }
+}
+
+// Bresenham
+fn draw_line(buffer: &mut [u8], width: usize, height: usize) {
+    let mut x0: i32 = 10;
+    let mut y0: i32 = height as i32 - 10;
+
+    let x1: i32 = 100;
+    let y1: i32 = height as i32 - 70;
+
+    let dx: i32 = (x1-x0).abs();
+    let sx: i32 = if x0<x1 { 1 } else { -1 };
+    let dy: i32 = -(y1-y0).abs();
+    let sy: i32 = if y0<y1 { 1 } else { -1 };
+
+    let mut err = dx+dy;
+    let mut e2: i32;
+
+    let c = math::Color::new(255,255,255);
+
+    loop {
+        set_pixel(buffer, width, height, x0 as usize, y0 as usize, c);
+        e2 = 2 * err;
+        if e2 >= dy {
+            if x0 == x1 { break }
+            err += dy; x0 += sx;
+        }
+        if e2 <= dx {
+            if y0 == y1 { break }
+            err += dx; y0 += sy;
+        }
+    }
+}
+
+fn set_pixel(buffer: &mut [u8], width: usize, height: usize, x: usize, y: usize, c: math::Color) {
+    //println!("settting pixel: [{},{}]", x, y);
+
+    let pitch = width * 3;
+    let offset = y * pitch + x * 3;
+    buffer[offset] = c.r;
+    buffer[offset+1] = c.g;
+    buffer[offset+2] = c.b;
 }
 
 /*
@@ -147,92 +190,193 @@ For now, let's create only the types we need.
 */
 
 mod math {
-    use std::ops::Add;
-    use std::ops::Sub;
-    use std::ops::Mul;
-    use assert_approx_eq::assert_approx_eq;
+    pub type Vec2f = vec2::Vec2<f32>;
+    pub type Vec3f = vec3::Vec3<f32>;
 
     #[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
-    pub struct Vec3<T>
-        where T : Add<Output=T> + Sub<Output=T> {
-        pub x: T,
-        pub y: T,
-        pub z: T,
+    pub struct Color {
+        pub r: u8,
+        pub g: u8,
+        pub b: u8,
     }
 
-    impl<T> Add for Vec3<T>
-        where T : Add<Output=T> + Sub<Output=T> + Copy {
-        
-        type Output = Vec3<T>;
-
-        fn add(self, other: Vec3<T>) -> Vec3<T> {
-            Vec3 {
-                x: self.x + other.x,
-                y: self.y + other.y,
-                z: self.z + other.z
+    impl Color {
+        pub fn new(r: u8, g: u8, b: u8) -> Color {
+            Color {
+                r: r,
+                g: g,
+                b: b,
             }
         }
     }
 
-    impl<T> Sub for Vec3<T>
-        where T : Add<Output=T> + Sub<Output=T> + Copy {
-        
-        type Output = Vec3<T>;
+    mod vec2 {
+        use std::ops::Add;
+        use std::ops::Sub;
+        use std::ops::Mul;
+        use assert_approx_eq::assert_approx_eq;
 
-        fn sub(self, other: Vec3<T>) -> Vec3<T> {
-            Vec3 {
-                x: self.x - other.x,
-                y: self.y - other.y,
-                z: self.z - other.z
+        #[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
+        pub struct Vec2<T>
+            where T : Add<Output=T> + Sub<Output=T> {
+            pub x: T,
+            pub y: T,
+        }
+
+        impl<T> Vec2<T> 
+            where T : Add<Output=T> + Sub<Output=T> + Copy {
+            pub fn new(x: T, y: T) -> Vec2<T> {
+                Vec2 {
+                    x: x,
+                    y: y
+                }
             }
         }
-    }
 
-    impl<T> Mul for Vec3<T>
-        where T : Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Copy {
-        
-        type Output = Vec3<T>;
+        impl<T> Add for Vec2<T>
+            where T : Add<Output=T> + Sub<Output=T> + Copy {
+            
+            type Output = Vec2<T>;
 
-        fn mul(self, other: Vec3<T>) -> Vec3<T> {
-            Vec3 {
-                x: self.x * other.x,
-                y: self.y * other.y,
-                z: self.z * other.z
+            fn add(self, other: Vec2<T>) -> Vec2<T> {
+                Vec2 {
+                    x: self.x + other.x,
+                    y: self.y + other.y,
+                }
             }
         }
-    }
 
-    // Todo: define using inner product trait?
-    pub fn dot<T>(a : Vec3<T>, b : Vec3<T>) -> T where
-        T : Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Copy {
-        a.x * b.x + a.y * b.y + a.z * b.z
-    }
+        impl<T> Sub for Vec2<T>
+            where T : Add<Output=T> + Sub<Output=T> + Copy {
+            
+            type Output = Vec2<T>;
 
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-
-        type Vec3f = Vec3<f32>;
-
-        #[test]
-        fn test_add() {
-            let a = Vec3f { x: 1.0, y: 2.0, z: 3.0 };
-            let b = Vec3f { x: 2.0, y: 3.0, z: 4.0 };
-            assert_eq!(a + b, Vec3f {x: 3.0, y: 5.0, z: 7.0 });
+            fn sub(self, other: Vec2<T>) -> Vec2<T> {
+                Vec2 {
+                    x: self.x - other.x,
+                    y: self.y - other.y,
+                }
+            }
         }
 
-        #[test]
-        fn test_sub() {
-            let a = Vec3f { x: 1.0, y: 2.0, z: 3.0 };
-            let b = Vec3f { x: 2.0, y: 3.0, z: 4.0 };
-            assert_eq!(a - b, Vec3f {x: -1.0, y: -1.0, z: -1.0 });
+        impl<T> Mul for Vec2<T>
+            where T : Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Copy {
+            
+            type Output = Vec2<T>;
+
+            fn mul(self, other: Vec2<T>) -> Vec2<T> {
+                Vec2 {
+                    x: self.x * other.x,
+                    y: self.y * other.y,
+                }
+            }
         }
 
-        #[test]
-        fn test_dot() {
-            let a = Vec3f { x: 1.0, y: 2.0, z: 3.0 };
-            let b = Vec3f { x: 2.0, y: 3.0, z: 4.0 };
-            assert_approx_eq!(dot(a, b), 20.0);
+        // Todo: define using inner product trait?
+        pub fn dot<T>(a : Vec2<T>, b : Vec2<T>) -> T where
+            T : Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Copy {
+            a.x * b.x + a.y * b.y
+        }
+    }
+
+    mod vec3 {
+        use std::ops::Add;
+        use std::ops::Sub;
+        use std::ops::Mul;
+        use assert_approx_eq::assert_approx_eq;
+
+        #[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
+        pub struct Vec3<T>
+            where T : Add<Output=T> + Sub<Output=T> {
+            pub x: T,
+            pub y: T,
+            pub z: T,
+        }
+
+        impl<T> Vec3<T> 
+            where T : Add<Output=T> + Sub<Output=T> + Copy {
+            pub fn new(x: T, y: T, z: T) -> Vec3<T> {
+                Vec3 {
+                    x: x,
+                    y: y,
+                    z: z,
+                }
+            }
+        }
+
+        impl<T> Add for Vec3<T>
+            where T : Add<Output=T> + Sub<Output=T> + Copy {
+            
+            type Output = Vec3<T>;
+
+            fn add(self, other: Vec3<T>) -> Vec3<T> {
+                Vec3 {
+                    x: self.x + other.x,
+                    y: self.y + other.y,
+                    z: self.z + other.z
+                }
+            }
+        }
+
+        impl<T> Sub for Vec3<T>
+            where T : Add<Output=T> + Sub<Output=T> + Copy {
+            
+            type Output = Vec3<T>;
+
+            fn sub(self, other: Vec3<T>) -> Vec3<T> {
+                Vec3 {
+                    x: self.x - other.x,
+                    y: self.y - other.y,
+                    z: self.z - other.z
+                }
+            }
+        }
+
+        impl<T> Mul for Vec3<T>
+            where T : Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Copy {
+            
+            type Output = Vec3<T>;
+
+            fn mul(self, other: Vec3<T>) -> Vec3<T> {
+                Vec3 {
+                    x: self.x * other.x,
+                    y: self.y * other.y,
+                    z: self.z * other.z
+                }
+            }
+        }
+
+        // Todo: define using inner product trait?
+        pub fn dot<T>(a : Vec3<T>, b : Vec3<T>) -> T where
+            T : Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Copy {
+            a.x * b.x + a.y * b.y + a.z * b.z
+        }
+
+        #[cfg(test)]
+        mod tests {
+            use super::*;
+            type Vec3f = Vec3<f32>;
+
+            #[test]
+            fn test_add() {
+                let a = Vec3f { x: 1.0, y: 2.0, z: 3.0 };
+                let b = Vec3f { x: 2.0, y: 3.0, z: 4.0 };
+                assert_eq!(a + b, Vec3f {x: 3.0, y: 5.0, z: 7.0 });
+            }
+
+            #[test]
+            fn test_sub() {
+                let a = Vec3f { x: 1.0, y: 2.0, z: 3.0 };
+                let b = Vec3f { x: 2.0, y: 3.0, z: 4.0 };
+                assert_eq!(a - b, Vec3f {x: -1.0, y: -1.0, z: -1.0 });
+            }
+
+            #[test]
+            fn test_dot() {
+                let a = Vec3f { x: 1.0, y: 2.0, z: 3.0 };
+                let b = Vec3f { x: 2.0, y: 3.0, z: 4.0 };
+                assert_approx_eq!(dot(a, b), 20.0);
+            }
         }
     }
 }
