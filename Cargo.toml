@@ -5,6 +5,10 @@ authors = ["mzandvliet <martijn@ramjetanvil.com>"]
 edition = "2018"
 build = "build.rs"
 
+[lib]
+name = "math"
+path = "src/lib.rs"
+
 [dependencies]
 sdl2 = "0.32"
 assert_approx_eq = "1.1.0"
