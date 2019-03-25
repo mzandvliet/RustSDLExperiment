@@ -61,6 +61,11 @@ fn do_game() -> Result<(), String> {
 
     // Our screen buffer
     let mut screen_buffer: [u8; SCREEN_BUFF_SIZE] = [0; SCREEN_BUFF_SIZE];
+    let mut screen = Screen {
+        buffer: &mut screen_buffer,
+        width: WIDTH as usize,
+        height: HEIGHT as usize,
+    };
     
     // Texture used to blit our screen buffer to canvas
     let texture_creator : TextureCreator<_> = canvas.texture_creator();
@@ -94,16 +99,16 @@ fn do_game() -> Result<(), String> {
         canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.clear();
 
-        // Our rendering logic (TODO: This is hella slow)
-        draw_gradient(&mut screen_buffer, WIDTH as usize, HEIGHT as usize);
-        draw_line(&mut screen_buffer, WIDTH as usize, HEIGHT as usize);
+        // Our rendering logic
+        draw_gradient(&mut screen);
+        draw_line(&mut screen);
 
-        // Copy screenbuffer to texture (TODO: This is hella slow)
-        texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+        // Copy screenbuffer to texture
+        texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
             for i in 0..SCREEN_BUFF_SIZE {
-                buffer[i] = screen_buffer[i];
+                buffer[i] = screen.buffer[i];
             }
-        })?;  
+        })?;
 
         // Blit
         let screen_rect = Rect::new(0,0,WIDTH,HEIGHT);
@@ -122,25 +127,25 @@ fn do_game() -> Result<(), String> {
     Ok(())
 }
 
-fn draw_gradient(buffer: &mut [u8], width: usize, height: usize) {
-    let pitch = width * 3;
-    for y in 0..height {
-        for x in 0..width {
+fn draw_gradient(screen: &mut Screen) {
+    let pitch = screen.width * 3;
+    for y in 0..screen.height {
+        for x in 0..screen.width {
             let offset = y * pitch + x * 3;
-            buffer[offset] = x as u8;
-            buffer[offset +1] = y as u8;
-            buffer[offset +2] = 0;
+            screen.buffer[offset] = x as u8;
+            screen.buffer[offset +1] = y as u8;
+            screen.buffer[offset +2] = 0;
         }
     }
 }
 
 // Bresenham
-fn draw_line(buffer: &mut [u8], width: usize, height: usize) {
+fn draw_line(screen: &mut Screen) {
     let mut x0: i32 = 10;
-    let mut y0: i32 = height as i32 - 10;
+    let mut y0: i32 = screen.height as i32 - 10;
 
     let x1: i32 = 100;
-    let y1: i32 = height as i32 - 70;
+    let y1: i32 = screen.height as i32 - 70;
 
     let dx: i32 = (x1-x0).abs();
     let sx: i32 = if x0<x1 { 1 } else { -1 };
@@ -153,7 +158,7 @@ fn draw_line(buffer: &mut [u8], width: usize, height: usize) {
     let c = math::Color::new(255,255,255);
 
     loop {
-        set_pixel(buffer, width, height, x0 as usize, y0 as usize, c);
+        set_pixel(screen, x0 as usize, y0 as usize, c);
         e2 = 2 * err;
         if e2 >= dy {
             if x0 == x1 { break }
@@ -166,14 +171,14 @@ fn draw_line(buffer: &mut [u8], width: usize, height: usize) {
     }
 }
 
-fn set_pixel(buffer: &mut [u8], width: usize, height: usize, x: usize, y: usize, c: math::Color) {
+fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: math::Color) {
     //println!("settting pixel: [{},{}]", x, y);
 
-    let pitch = width * 3;
+    let pitch = screen.width * 3;
     let offset = y * pitch + x * 3;
-    buffer[offset] = c.r;
-    buffer[offset+1] = c.g;
-    buffer[offset+2] = c.b;
+    screen.buffer[offset] = c.r;
+    screen.buffer[offset+1] = c.g;
+    screen.buffer[offset+2] = c.b;
 }
 
 /*
@@ -188,6 +193,12 @@ first we need a basic tour of how to actually use GA. (More reading)
 For now, let's create only the types we need.
 
 */
+
+struct Screen<'a> {
+    pub buffer: &'a mut [u8],
+    pub width: usize,
+    pub height: usize,
+}
 
 mod math {
     pub type Vec2f = vec2::Vec2<f32>;
