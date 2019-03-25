@@ -101,7 +101,10 @@ fn do_game() -> Result<(), String> {
 
         // Our rendering logic
         draw_gradient(&mut screen);
-        draw_line(&mut screen, (10, 10), (100, 70));
+        draw_line(&mut screen, (10, 10), (110, 10));
+        draw_line(&mut screen, (110, 10), (110, 110));
+        draw_line(&mut screen, (110, 110), (10, 110));
+        draw_line(&mut screen, (10, 110), (10, 10));
 
         // Copy screenbuffer to texture
         texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
