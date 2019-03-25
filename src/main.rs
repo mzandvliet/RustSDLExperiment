@@ -101,7 +101,7 @@ fn do_game() -> Result<(), String> {
 
         // Our rendering logic
         draw_gradient(&mut screen);
-        draw_line(&mut screen);
+        draw_line(&mut screen, (10, 10), (100, 70));
 
         // Copy screenbuffer to texture
         texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
@@ -140,12 +140,12 @@ fn draw_gradient(screen: &mut Screen) {
 }
 
 // Bresenham
-fn draw_line(screen: &mut Screen) {
-    let mut x0: i32 = 10;
-    let mut y0: i32 = screen.height as i32 - 10;
+fn draw_line(screen: &mut Screen, a: (i32, i32), b: (i32, i32)) {
+    let mut x0: i32 = a.0;
+    let mut y0: i32 = a.1;
 
-    let x1: i32 = 100;
-    let y1: i32 = screen.height as i32 - 70;
+    let x1: i32 = b.0;
+    let y1: i32 = b.1;
 
     let dx: i32 = (x1-x0).abs();
     let sx: i32 = if x0<x1 { 1 } else { -1 };
