@@ -9,27 +9,19 @@ use sdl2::keyboard::Keycode;
 use sdl2::render::{TextureCreator};
 use std::{thread, time};
 
-/* Todo:
-    - Start writing some simple game rendering algorithms
+/*
+    Prototype:
+    Define a cube using 3d points
+    Project to 2d screen using a matrix
+    Draw using bresenham
 
-    On optimization:
-
-    The loops we're using to draw pixels into buffer, and to copy buffer, are hella slow (without --release, anyway)
-    https://stackoverflow.com/questions/47542438/does-rusts-array-bounds-checking-affect-performance
-    https://llogiq.github.io/2017/06/01/perf-pitfalls.html
-
-    - Bounds checking might be killing it
-    - nested for-x for-y is cache-incoherent
-    - with a (u8,u8,u8) tuple for color you can divide amount of array accesses by 3 (can write as iterator?)
-    - Loop is a slow way to do a bitwise copy, can we not just memcpy to the texture while having it locked?
-    - Compile with optimization flag (--release) OH THAT MAKES A HUGE DIFFERENCE!
-    - For high res renders, we need to ensure screenbuffer memory layout remains cache friendly. For intermediate
-    calculations we might want to use morton order or SFCs to keep things coherent.
+    Then:
+    Implement  Lengyel's book, plus a rasterizer
 */
 
 
 fn main() {
-    do_game();
+    do_game().unwrap();
 }
 
 fn do_game() -> Result<(), String> {
@@ -100,11 +92,13 @@ fn do_game() -> Result<(), String> {
         canvas.clear();
 
         // Our rendering logic
-        draw_gradient(&mut screen);
+        // draw_gradient(&mut screen);
         draw_line(&mut screen, (10, 10), (110, 10));
         draw_line(&mut screen, (110, 10), (110, 110));
         draw_line(&mut screen, (110, 110), (10, 110));
         draw_line(&mut screen, (10, 110), (10, 10));
+
+        draw_circle(&mut screen, (350, 250), 100);
 
         // Copy screenbuffer to texture
         texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
@@ -172,8 +166,36 @@ fn draw_line(screen: &mut Screen, a: (i32, i32), b: (i32, i32)) {
     }
 }
 
+fn draw_circle(screen: &mut Screen, a: (i32, i32), radius: i32) {
+    let mut x: i32  = -radius;
+    let mut y: i32 = 0;
+    let mut err = 2 - 2 * radius;
+
+    let c = math::Color::new(255,255,255);
+
+    // println!("Begin");
+    loop {
+        set_pixel(screen, (a.0-x) as usize, (a.1+y) as usize, c);
+        set_pixel(screen, (a.0-y) as usize, (a.1-x) as usize, c);
+        set_pixel(screen, (a.0+x) as usize, (a.1-y) as usize, c);
+        set_pixel(screen, (a.0+y) as usize, (a.1+x) as usize, c);
+        let r = err;
+        if r <= y { y+=1; err += y*2+1; }
+        if r > 0 || err > y { x+=1; err += x*2+1; }
+
+        if x > 0 {
+            break;
+        }
+    }
+    // println!("End");
+}
+
 fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: math::Color) {
-    //println!("settting pixel: [{},{}]", x, y);
+    // println!("settting pixel: [{},{}]", x, y);
+
+    // Todo: you don't want to be doing asserts this nested within core loops
+    assert!(x < screen.width);
+    assert!(y < screen.height);
 
     let pitch = screen.width * 3;
     let offset = y * pitch + x * 3;

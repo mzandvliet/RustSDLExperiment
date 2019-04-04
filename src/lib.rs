@@ -38,7 +38,6 @@ mod vec2 {
     use std::ops::Add;
     use std::ops::Sub;
     use std::ops::Mul;
-    use assert_approx_eq::assert_approx_eq;
 
     #[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
     pub struct Vec2<T>
@@ -54,6 +53,11 @@ mod vec2 {
                 x: x,
                 y: y
             }
+        }
+
+        pub fn dot(a : Vec2<T>, b : Vec2<T>) -> T where
+            T : Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Copy {
+            a.x * b.x + a.y * b.y
         }
     }
 
@@ -95,19 +99,12 @@ mod vec2 {
             }
         }
     }
-
-    // Todo: define using inner product trait?
-    pub fn dot<T>(a : Vec2<T>, b : Vec2<T>) -> T where
-        T : Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Copy {
-        a.x * b.x + a.y * b.y
-    }
 }
 
 mod vec3 {
     use std::ops::Add;
     use std::ops::Sub;
     use std::ops::Mul;
-    use assert_approx_eq::assert_approx_eq;
 
     #[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
     pub struct Vec3<T>
@@ -125,6 +122,12 @@ mod vec3 {
                 y: y,
                 z: z,
             }
+        }
+
+        // Todo: define using inner product trait?
+        pub fn dot(a : Vec3<T>, b : Vec3<T>) -> T where
+            T : Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Copy {
+            a.x * b.x + a.y * b.y + a.z * b.z
         }
     }
 
@@ -170,15 +173,11 @@ mod vec3 {
         }
     }
 
-    // Todo: define using inner product trait?
-    pub fn dot<T>(a : Vec3<T>, b : Vec3<T>) -> T where
-        T : Add<Output=T> + Sub<Output=T> + Mul<Output=T> + Copy {
-        a.x * b.x + a.y * b.y + a.z * b.z
-    }
-
     #[cfg(test)]
     mod tests {
         use super::*;
+        use assert_approx_eq::assert_approx_eq;
+
         type Vec3f = Vec3<f32>;
 
         #[test]
@@ -199,7 +198,7 @@ mod vec3 {
         fn test_dot() {
             let a = Vec3f { x: 1.0, y: 2.0, z: 3.0 };
             let b = Vec3f { x: 2.0, y: 3.0, z: 4.0 };
-            assert_approx_eq!(dot(a, b), 20.0);
+            assert_approx_eq!(Vec3::dot(a, b), 20.0);
         }
     }
 }
