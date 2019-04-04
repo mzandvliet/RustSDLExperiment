@@ -23,6 +23,8 @@ use std::{thread, time};
     - with a (u8,u8,u8) tuple for color you can divide amount of array accesses by 3 (can write as iterator?)
     - Loop is a slow way to do a bitwise copy, can we not just memcpy to the texture while having it locked?
     - Compile with optimization flag (--release) OH THAT MAKES A HUGE DIFFERENCE!
+    - For high res renders, we need to ensure screenbuffer memory layout remains cache friendly. For intermediate
+    calculations we might want to use morton order or SFCs to keep things coherent.
 */
 
 
@@ -106,9 +108,7 @@ fn do_game() -> Result<(), String> {
 
         // Copy screenbuffer to texture
         texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
-            for i in 0..SCREEN_BUFF_SIZE {
-                buffer[i] = screen.buffer[i];
-            }
+            buffer.copy_from_slice(screen.buffer);
         })?;
 
         // Blit
