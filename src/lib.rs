@@ -203,3 +203,53 @@ mod vec3 {
         }
     }
 }
+
+mod matrix {
+    use super::Vec3f;
+
+    // Todo: partialEq, Eq and Hash all don't work with f32
+    #[derive(Debug, Copy, Clone)]
+    pub struct Mat4x4 {
+        pub values: [[f32; 4]; 4],
+    }
+
+    impl Mat4x4 {
+        pub fn new(
+            m00: f32, m01: f32, m02: f32, m03: f32,
+            m10: f32, m11: f32, m12: f32, m13: f32,
+            m20: f32, m21: f32, m22: f32, m23: f32,
+            m30: f32, m31: f32, m32: f32, m33: f32) -> Mat4x4 {
+            Mat4x4::from_columns(&[
+                [m00, m01, m02, m03],
+                [m10, m11, m12, m13],
+                [m20, m21, m22, m23],
+                [m30, m31, m32, m33]])
+        }
+
+        pub const fn from_columns(values: &[[f32; 4]; 4]) -> Mat4x4 {
+            Mat4x4 {
+                values: *values
+            }
+        }
+
+        pub fn from_vectors(forward: &Vec3f, up: &Vec3f, right: &Vec3f, position: &Vec3f) -> Mat4x4 {
+            Mat4x4::from_columns(&[
+                [forward.x, forward.y,  forward.z,  position.x],
+                [up.x,      up.y,       up.z,       position.y],
+                [right.x,   right.y,    right.z,    position.z],
+                [0.0 ,      0.0,        0.0,        1.0]])
+        }
+
+        // fn init(self,
+        //     m00: f32, m01: f32, m02: f32, m03: f32,
+        //     m10: f32, m11: f32, m12: f32, m13: f32,
+        //     m20: f32, m21: f32, m22: f32, m23: f32,
+        //     m30: f32, m31: f32, m32: f32, m33: f32) -> Mat4x4 {
+            
+        //     self.values[0][0] = m00; self.values[0][1] = m01; self.values[0][2] = m02; self.values[0][3] = m03;
+        //     self.values[1][0] = m10; self.values[1][1] = m11; self.values[1][2] = m12; self.values[1][3] = m13;
+        //     self.values[2][0] = m20; self.values[2][1] = m21; self.values[2][2] = m22; self.values[2][3] = m23;
+        //     self.values[3][0] = m30; self.values[3][1] = m31; self.values[3][2] = m32; self.values[3][3] = m33;
+        // }
+    }
+}
