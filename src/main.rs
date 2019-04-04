@@ -60,9 +60,9 @@ fn do_game() -> Result<(), String> {
     canvas.present();
 
     // Our screen buffer
-    let mut screen_buffer: [u8; SCREEN_BUFF_SIZE] = [0; SCREEN_BUFF_SIZE];
+    let screen_buffer: Box<[u8]> = Box::new([0; SCREEN_BUFF_SIZE]);
     let mut screen = Screen {
-        buffer: &mut screen_buffer,
+        buffer: screen_buffer,
         width: WIDTH as usize,
         height: HEIGHT as usize,
     };
@@ -108,7 +108,7 @@ fn do_game() -> Result<(), String> {
 
         // Copy screenbuffer to texture
         texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
-            buffer.copy_from_slice(screen.buffer);
+            buffer.copy_from_slice(screen.buffer.as_ref());
         })?;
 
         // Blit
@@ -184,8 +184,8 @@ fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: math::Color) {
     screen.buffer[offset+2] = c.b;
 }
 
-struct Screen<'a> {
-    pub buffer: &'a mut [u8],
+struct Screen {
+    pub buffer: Box<[u8]>,
     pub width: usize,
     pub height: usize,
 }
