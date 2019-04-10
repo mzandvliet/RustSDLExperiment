@@ -97,6 +97,18 @@ pub fn circle(screen: &mut Screen, a: (i32, i32), radius: i32) {
     }
 }
 
+pub fn clear(screen: &mut Screen) {
+    let pitch = screen.width * 3;
+    for y in 0..screen.height {
+        for x in 0..screen.width {
+            let offset = y * pitch + x * 3;
+            screen.buffer[offset] = 0;
+            screen.buffer[offset +1] = 0;
+            screen.buffer[offset +2] = 0;
+        }
+    }
+}
+
 pub fn gradient(screen: &mut Screen) {
     let pitch = screen.width * 3;
     for y in 0..screen.height {

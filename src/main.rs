@@ -91,17 +91,29 @@ fn do_game() -> Result<(), String> {
         // Rendering
 
         // Clear
+        draw::clear(&mut screen);
         canvas.set_draw_color(sdl2::pixels::Color::RGB(0, 0, 0));
         canvas.clear();
 
         // Our rendering logic
-        // draw::gradient(&mut screen);
+        
+        // Draw a square
         draw::line(&mut screen, (10, 10), (110, 10));
         draw::line(&mut screen, (110, 10), (110, 110));
         draw::line(&mut screen, (110, 110), (10, 110));
         draw::line(&mut screen, (10, 110), (10, 10));
 
-        draw::circle(&mut screen, (350, 250), 100);
+        // Draw a circle
+        let p1 = (350, 250);
+        let r = 100;
+        draw::circle(&mut screen, p1, r);
+
+        // Draw a line rotating inside that circle
+        let rot = linalg::Mat2x2f::rotation(std::f32::consts::PI * 2.0 * ((frame as f32) / 30.0));
+        let dir = linalg::Vec2f::new(0.0, r as f32);
+        let dir = rot * dir;
+        let p2 = (p1.0 + dir.x as i32, p1.1 + dir.y as i32);
+        draw::line(&mut screen, p1, p2);
 
         // Copy screenbuffer to texture
         texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {

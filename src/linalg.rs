@@ -241,10 +241,17 @@ impl Mat2x2f {
             Vec2f::new(m10, m11)])
     }
 
-    pub const fn from_columns(values: &[Vec2f; 2]) -> Mat2x2f {
+    pub fn from_columns(values: &[Vec2f; 2]) -> Mat2x2f {
         Mat2x2f {
             values: *values
         }
+    }
+
+    pub fn rotation(radians: f32) -> Mat2x2f {
+        Mat2x2f::new(
+            f32::cos(radians), -f32::sin(radians),
+            f32::sin(radians), f32::cos(radians)
+        )
     }
 }
 
