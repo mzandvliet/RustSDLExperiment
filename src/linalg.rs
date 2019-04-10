@@ -10,6 +10,9 @@ first we need a basic tour of how to actually use GA. (More reading)
 
 For now, let's create only the types we need.
 
+Todo:
+- Impl approx_eq for testing https://docs.rs/approx/0.3.2/approx/
+
 Todo much later:
 - Specification of generic Scalar type trait bound
 - Write vector arithmetic such that number of dimensions is a generic argument
@@ -136,7 +139,7 @@ pub struct Vec3f {
 }
 
 impl Vec3f {
-    pub fn new(x: f32, y: f32, z: f32) -> Vec3f {
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
         Vec3f {
             x: x,
             y: y,
@@ -147,6 +150,10 @@ impl Vec3f {
     // Todo: define using inner product trait?
     pub fn dot(a : Vec3f, b : Vec3f) -> f32 {
         a.x * b.x + a.y * b.y + a.z * b.z
+    }
+
+    pub fn cross(a : Vec3f, b : Vec3f) -> Self {
+        Vec3f::new(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
     }
 }
 
@@ -247,6 +254,13 @@ impl Mat2x2f {
         }
     }
 
+    pub fn transpose(&self) -> Mat2x2f {
+        Mat2x2f::new(
+            self[0][0], self[1][1],
+            self[0][1], self[1][1]
+        )
+    }
+
     pub fn rotation(radians: f32) -> Mat2x2f {
         Mat2x2f::new(
             f32::cos(radians), f32::sin(radians),
@@ -328,6 +342,13 @@ mod tests {
     }
 
     #[test]
+    fn test_cross() {
+        let a = Vec3f { x: 1.0, y: 0.0, z: 0.0 };
+        let b = Vec3f { x: 0.0, y: 1.0, z: 0.0 };
+        assert_eq!(Vec3f::cross(a,b), Vec3f::new(0.0, 0.0, 1.0)); // Todo: approx_eq
+    }
+
+    #[test]
     fn test_mat2x2_mul() {
         let m = Mat2x2f::new(
             0.0, 1.0,
@@ -336,6 +357,6 @@ mod tests {
 
         let v = Vec2f::new(1.0, 0.0);
 
-        assert_eq!(m * v, Vec2f::new(0.0, 1.0));
+        assert_eq!(m * v, Vec2f::new(0.0, 1.0)); // Todo: approx_eq
     }
 }
