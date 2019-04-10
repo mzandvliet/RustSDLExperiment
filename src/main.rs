@@ -109,9 +109,11 @@ fn do_game() -> Result<(), String> {
         draw::circle(&mut screen, p1, r);
 
         // Draw a line rotating inside that circle
+        let scale = linalg::Mat2x2f::scale(0.5 + 1.5 * (frame as f32 / 30.0));
         let rot = linalg::Mat2x2f::rotation(std::f32::consts::PI * 2.0 * ((frame as f32) / 30.0));
+        let m = scale * rot;
         let dir = linalg::Vec2f::new(0.0, r as f32);
-        let dir = rot * dir;
+        let dir = m * dir;
         let p2 = (p1.0 + dir.x as i32, p1.1 + dir.y as i32);
         draw::line(&mut screen, p1, p2);
 

@@ -237,8 +237,8 @@ impl Mat2x2f {
         m00: f32, m01:f32,
         m10: f32, m11:f32) -> Mat2x2f {
         Mat2x2f::from_columns(&[
-            Vec2f::new(m00, m01),
-            Vec2f::new(m10, m11)])
+            Vec2f::new(m00, m01), // COLUMN 1 !!
+            Vec2f::new(m10, m11)]) // COLUMN 2 !!
     }
 
     pub fn from_columns(values: &[Vec2f; 2]) -> Mat2x2f {
@@ -249,8 +249,15 @@ impl Mat2x2f {
 
     pub fn rotation(radians: f32) -> Mat2x2f {
         Mat2x2f::new(
-            f32::cos(radians), -f32::sin(radians),
-            f32::sin(radians), f32::cos(radians)
+            f32::cos(radians), f32::sin(radians),
+            -f32::sin(radians), f32::cos(radians)
+        )
+    }
+
+    pub fn scale(factor: f32) -> Mat2x2f {
+        Mat2x2f::new(
+            factor, 0.0,
+            0.0, factor
         )
     }
 }
@@ -263,6 +270,7 @@ impl Index<usize> for Mat2x2f {
     }
 }
 
+// [x,y], x is column, y is row
 impl Index<[usize; 2]> for Mat2x2f {
     type Output = f32;
 
@@ -275,9 +283,10 @@ impl Mul for Mat2x2f {
     type Output = Mat2x2f;
 
     fn mul(self, other: Mat2x2f) -> Mat2x2f {
-        Mat2x2f::from_columns(&[
-            Vec2f::new(Vec2f::dot(self[0], other[0]), Vec2f::dot(self[0], other[1])),
-            Vec2f::new(Vec2f::dot(self[1], other[0]), Vec2f::dot(self[1], other[1]))])
+        Mat2x2f::new(
+            self[0][0] * other[0][0] + self[1][0] * other[0][1], self[0][0] * other[1][0] + self[1][0] * other[1][1],
+            self[0][1] * other[0][0] + self[1][1] * other[0][1], self[0][1] * other[1][0] + self[1][1] * other[1][1]
+        )
     }
 }
 
@@ -291,44 +300,6 @@ impl Mul<Vec2f> for Mat2x2f {
         )
     }
 }
-
-// // Todo: partialEq, Eq and Hash all don't work with f32
-// #[derive(Debug, Copy, Clone)]
-// pub struct Mat4x4 {
-//     pub values: [[f32; 4]; 4],
-// }
-
-// impl Mat4x4 {
-//     pub fn new(
-//         m00: f32, m01: f32, m02: f32, m03: f32,
-//         m10: f32, m11: f32, m12: f32, m13: f32,
-//         m20: f32, m21: f32, m22: f32, m23: f32,
-//         m30: f32, m31: f32, m32: f32, m33: f32) -> Mat4x4 {
-//         Mat4x4::from_columns(&[
-//             [m00, m01, m02, m03],
-//             [m10, m11, m12, m13],
-//             [m20, m21, m22, m23],
-//             [m30, m31, m32, m33]])
-//     }
-
-//     pub const fn from_columns(values: &[[f32; 4]; 4]) -> Mat4x4 {
-//         Mat4x4 {
-//             values: *values
-//         }
-//     }
-// }
-
-// impl Mul for Mat4x4 {
-//     type Output = Mat4x4;
-
-//     fn mul(self, other: Mat4x4) -> Mat4x4 {
-//         Mat4x4::from_columns(&[
-//             [self.values[0][0] * other.values[0][0], self.values[1][0] * other.values[0][1], self.values[2][0] * other.values[0][2], self.values[3][0] * other.values[0][3]],
-//             [0.0,0.0,0.0,0.0],
-//             [0.0,0.0,0.0,0.0],
-//             [0.0,0.0,0.0,0.0]])
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
