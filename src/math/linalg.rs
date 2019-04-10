@@ -17,23 +17,6 @@ Todo:
 pub type Vec2f = vec2::Vec2<f32>;
 pub type Vec3f = vec3::Vec3<f32>;
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
-pub struct Color {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-}
-
-impl Color {
-    pub fn new(r: u8, g: u8, b: u8) -> Color {
-        Color {
-            r: r,
-            g: g,
-            b: b,
-        }
-    }
-}
-
 mod vec2 {
     use std::ops::Add;
     use std::ops::Sub;

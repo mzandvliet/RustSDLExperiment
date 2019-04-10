@@ -9,6 +9,12 @@ use sdl2::keyboard::Keycode;
 use sdl2::render::{TextureCreator};
 use std::{thread, time};
 
+mod graphics;
+use graphics::draw;
+
+mod math;
+use math::linalg;
+
 /*
     Prototype:
     Define a cube using 3d points
@@ -53,7 +59,7 @@ fn do_game() -> Result<(), String> {
 
     // Our screen buffer
     let screen_buffer: Box<[u8]> = Box::new([0; SCREEN_BUFF_SIZE]);
-    let mut screen = Screen {
+    let mut screen = draw::Screen {
         buffer: screen_buffer,
         width: WIDTH as usize,
         height: HEIGHT as usize,
@@ -65,6 +71,8 @@ fn do_game() -> Result<(), String> {
 
     let mut event_pump = sdl_context.event_pump()?;
     let mut frame : u32 = 0;
+
+    let _x = linalg::Vec2f::new(1.0,2.0);
 
     'running: loop {
         // Game simulation logic
@@ -92,13 +100,13 @@ fn do_game() -> Result<(), String> {
         canvas.clear();
 
         // Our rendering logic
-        // draw_gradient(&mut screen);
-        draw_line(&mut screen, (10, 10), (110, 10));
-        draw_line(&mut screen, (110, 10), (110, 110));
-        draw_line(&mut screen, (110, 110), (10, 110));
-        draw_line(&mut screen, (10, 110), (10, 10));
+        // draw::gradient(&mut screen);
+        draw::line(&mut screen, (10, 10), (110, 10));
+        draw::line(&mut screen, (110, 10), (110, 110));
+        draw::line(&mut screen, (110, 110), (10, 110));
+        draw::line(&mut screen, (10, 110), (10, 10));
 
-        draw_circle(&mut screen, (350, 250), 100);
+        draw::circle(&mut screen, (350, 250), 100);
 
         // Copy screenbuffer to texture
         texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
@@ -120,94 +128,4 @@ fn do_game() -> Result<(), String> {
     }
 
     Ok(())
-}
-
-fn draw_gradient(screen: &mut Screen) {
-    let pitch = screen.width * 3;
-    for y in 0..screen.height {
-        for x in 0..screen.width {
-            let offset = y * pitch + x * 3;
-            screen.buffer[offset] = x as u8;
-            screen.buffer[offset +1] = y as u8;
-            screen.buffer[offset +2] = 0;
-        }
-    }
-}
-
-// Bresenham
-fn draw_line(screen: &mut Screen, a: (i32, i32), b: (i32, i32)) {
-    let mut x0: i32 = a.0;
-    let mut y0: i32 = a.1;
-
-    let x1: i32 = b.0;
-    let y1: i32 = b.1;
-
-    let dx: i32 = (x1-x0).abs();
-    let sx: i32 = if x0<x1 { 1 } else { -1 };
-    let dy: i32 = -(y1-y0).abs();
-    let sy: i32 = if y0<y1 { 1 } else { -1 };
-
-    let mut err = dx+dy;
-    let mut e2: i32;
-
-    let c = math::Color::new(255,255,255);
-
-    loop {
-        set_pixel(screen, x0 as usize, y0 as usize, c);
-        e2 = 2 * err;
-        if e2 >= dy {
-            if x0 == x1 { break }
-            err += dy; x0 += sx;
-        }
-        if e2 <= dx {
-            if y0 == y1 { break }
-            err += dx; y0 += sy;
-        }
-    }
-}
-
-fn draw_circle(screen: &mut Screen, a: (i32, i32), radius: i32) {
-    let mut x: i32  = -radius;
-    let mut y: i32 = 0;
-    let mut err = 2 - 2 * radius;
-
-    let c = math::Color::new(255,255,255);
-
-    // println!("Begin");
-    loop {
-        set_pixel(screen, (a.0-x) as usize, (a.1+y) as usize, c);
-        set_pixel(screen, (a.0-y) as usize, (a.1-x) as usize, c);
-        set_pixel(screen, (a.0+x) as usize, (a.1-y) as usize, c);
-        set_pixel(screen, (a.0+y) as usize, (a.1+x) as usize, c);
-        let r = err;
-        if r <= y { y+=1; err += y*2+1; }
-        if r > 0 || err > y { x+=1; err += x*2+1; }
-
-        if x > 0 {
-            break;
-        }
-    }
-    // println!("End");
-}
-
-fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: math::Color) {
-    // println!("settting pixel: [{},{}]", x, y);
-
-    // Todo: you don't want to be doing asserts this nested within core loops
-    assert!(x < screen.width);
-    assert!(y < screen.height);
-
-    let pitch = screen.width * 3;
-    let offset = y * pitch + x * 3;
-
-    // Todo: given Rust does bounds checks, it *might* be faster to writing using (u8,u8,u8) or (u8,u8,u8,u8) tuples
-    screen.buffer[offset] = c.r;
-    screen.buffer[offset+1] = c.g;
-    screen.buffer[offset+2] = c.b;
-}
-
-struct Screen {
-    pub buffer: Box<[u8]>,
-    pub width: usize,
-    pub height: usize,
 }
