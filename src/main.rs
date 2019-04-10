@@ -9,11 +9,8 @@ use sdl2::keyboard::Keycode;
 use sdl2::render::{TextureCreator};
 use std::{thread, time};
 
-mod graphics;
-use graphics::draw;
-
-mod math;
-use math::linalg;
+mod draw;
+mod linalg;
 
 /*
     Prototype:
@@ -71,8 +68,6 @@ fn do_game() -> Result<(), String> {
 
     let mut event_pump = sdl_context.event_pump()?;
     let mut frame : u32 = 0;
-
-    let _x = linalg::Vec2f::new(1.0,2.0);
 
     'running: loop {
         // Game simulation logic

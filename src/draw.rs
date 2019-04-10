@@ -1,3 +1,48 @@
+/*
+    Todo:
+
+    - Create types for points
+*/
+
+pub struct Screen {
+    pub buffer: Box<[u8]>,
+    pub width: usize,
+    pub height: usize,
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
+pub struct Color {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+impl Color {
+    pub fn new(r: u8, g: u8, b: u8) -> Color {
+        Color {
+            r: r,
+            g: g,
+            b: b,
+        }
+    }
+}
+
+pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: Color) {
+    // println!("settting pixel: [{},{}]", x, y);
+
+    // Todo: you don't want to be doing asserts this nested within core loops
+    assert!(x < screen.width);
+    assert!(y < screen.height);
+
+    let pitch = screen.width * 3;
+    let offset = y * pitch + x * 3;
+
+    // Todo: given Rust does bounds checks, it *might* be faster to writing using (u8,u8,u8) or (u8,u8,u8,u8) tuples
+    screen.buffer[offset] = c.r;
+    screen.buffer[offset+1] = c.g;
+    screen.buffer[offset+2] = c.b;
+}
+
 // Bresenham
 pub fn line(screen: &mut Screen, a: (i32, i32), b: (i32, i32)) {
     let mut x0: i32 = a.0;
@@ -37,7 +82,6 @@ pub fn circle(screen: &mut Screen, a: (i32, i32), radius: i32) {
 
     let c = Color::new(255,255,255);
 
-    // println!("Begin");
     loop {
         set_pixel(screen, (a.0-x) as usize, (a.1+y) as usize, c);
         set_pixel(screen, (a.0-y) as usize, (a.1-x) as usize, c);
@@ -51,7 +95,18 @@ pub fn circle(screen: &mut Screen, a: (i32, i32), radius: i32) {
             break;
         }
     }
-    // println!("End");
+}
+
+pub fn gradient(screen: &mut Screen) {
+    let pitch = screen.width * 3;
+    for y in 0..screen.height {
+        for x in 0..screen.width {
+            let offset = y * pitch + x * 3;
+            screen.buffer[offset] = x as u8;
+            screen.buffer[offset +1] = y as u8;
+            screen.buffer[offset +2] = 0;
+        }
+    }
 }
 
 // void plotQuadBezierSegAA(int x0, int y0, int x1, int y1, int x2, int y2)
@@ -177,70 +232,3 @@ pub fn circle(screen: &mut Screen, a: (i32, i32), radius: i32) {
 //     draw_line(screen, (a.0 as i32, a.1 as i32), (c.0 as i32, c.1 as i32));              /* plot remaining needle to end */
 // }
 
-pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: Color) {
-    // println!("settting pixel: [{},{}]", x, y);
-
-    // Todo: you don't want to be doing asserts this nested within core loops
-    assert!(x < screen.width);
-    assert!(y < screen.height);
-
-    let pitch = screen.width * 3;
-    let offset = y * pitch + x * 3;
-
-    // Todo: given Rust does bounds checks, it *might* be faster to writing using (u8,u8,u8) or (u8,u8,u8,u8) tuples
-    screen.buffer[offset] = c.r;
-    screen.buffer[offset+1] = c.g;
-    screen.buffer[offset+2] = c.b;
-}
-
-pub struct Screen {
-    pub buffer: Box<[u8]>,
-    pub width: usize,
-    pub height: usize,
-}
-
-#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
-pub struct Color {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-}
-
-impl Color {
-    pub fn new(r: u8, g: u8, b: u8) -> Color {
-        Color {
-            r: r,
-            g: g,
-            b: b,
-        }
-    }
-}
-
-pub fn draw_gradient(screen: &mut Screen) {
-    let pitch = screen.width * 3;
-    for y in 0..screen.height {
-        for x in 0..screen.width {
-            let offset = y * pitch + x * 3;
-            screen.buffer[offset] = x as u8;
-            screen.buffer[offset +1] = y as u8;
-            screen.buffer[offset +2] = 0;
-        }
-    }
-}
-
-// Todo: reformulate using Point/Vector arithmetic
-// struct Point {
-//     x: u32,
-//     y: u32,
-// }
-
-// struct Vector {
-//     x: i32,
-//     y: i32,
-// }
-
-// use std::ops::Add;
-
-// impl Add<RHS=Vector> for Point {
-//     type 
-// }
