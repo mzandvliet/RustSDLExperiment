@@ -31,13 +31,14 @@ pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: Color) {
     // println!("settting pixel: [{},{}]", x, y);
 
     // Todo: you don't want to be doing asserts this nested within core loops
+    // what we need is line cullign and clipping stages before we draw
     assert!(x < screen.width);
     assert!(y < screen.height);
 
     let pitch = screen.width * 3;
     let offset = y * pitch + x * 3;
 
-    // Todo: given Rust does bounds checks, it *might* be faster to writing using (u8,u8,u8) or (u8,u8,u8,u8) tuples
+    // Todo: given that Rust does bounds checks, it *might* be faster to writing using (u8,u8,u8) or (u8,u8,u8,u8) tuples
     screen.buffer[offset] = c.r;
     screen.buffer[offset+1] = c.g;
     screen.buffer[offset+2] = c.b;
@@ -51,7 +52,7 @@ pub fn line(screen: &mut Screen, a: (i32, i32), b: (i32, i32)) {
     let x1: i32 = b.0;
     let y1: i32 = b.1;
 
-    let dx: i32 = (x1-x0).abs();
+    let dx: i32 =  (x1-x0).abs();
     let sx: i32 = if x0<x1 { 1 } else { -1 };
     let dy: i32 = -(y1-y0).abs();
     let sy: i32 = if y0<y1 { 1 } else { -1 };
@@ -121,48 +122,6 @@ pub fn gradient(screen: &mut Screen) {
     }
 }
 
-// void plotQuadBezierSegAA(int x0, int y0, int x1, int y1, int x2, int y2)
-// {  
-//    int sx = x2-x1, sy = y2-y1;
-//    long xx = x0-x1, yy = y0-y1, xy;         /* relative values for checks */
-//    double dx, dy, err, ed, cur = xx*sy-yy*sx;                /* curvature */
-
-//    assert(xx*sx >= 0 && yy*sy >= 0);  /* sign of gradient must not change */
-
-//    if (sx*(long)sx+sy*(long)sy > xx*xx+yy*yy) { /* begin with longer part */ 
-//       x2 = x0; x0 = sx+x1; y2 = y0; y0 = sy+y1; cur = -cur; /* swap P0 P2 */
-//    }  
-//    if (cur != 0)
-//    {                                                  /* no straight line */
-//       xx += sx; xx *= sx = x0 < x2 ? 1 : -1;          /* x step direction */
-//       yy += sy; yy *= sy = y0 < y2 ? 1 : -1;          /* y step direction */
-//       xy = 2*xx*yy; xx *= xx; yy *= yy;         /* differences 2nd degree */
-//       if (cur*sx*sy < 0) {                          /* negated curvature? */
-//          xx = -xx; yy = -yy; xy = -xy; cur = -cur;
-//       }
-//       dx = 4.0*sy*(x1-x0)*cur+xx-xy;            /* differences 1st degree */
-//       dy = 4.0*sx*(y0-y1)*cur+yy-xy;
-//       xx += xx; yy += yy; err = dx+dy+xy;               /* error 1st step */
-//       do {                              
-//          cur = fmin(dx+xy,-xy-dy);
-//          ed = fmax(dx+xy,-xy-dy);           /* approximate error distance */
-//          ed = 255/(ed+2*ed*cur*cur/(4.*ed*ed+cur*cur)); 
-//          setPixelAA(x0,y0, ed*fabs(err-dx-dy-xy));          /* plot curve */
-//          if (x0 == x2 && y0 == y2) return;/* last pixel -> curve finished */
-//          x1 = x0; cur = dx-err; y1 = 2*err+dy < 0;
-//          if (2*err+dx > 0) {                                    /* x step */
-//             if (err-dy < ed) setPixelAA(x0,y0+sy, ed*fabs(err-dy));
-//             x0 += sx; dx -= xy; err += dy += yy;
-//          }
-//          if (y1) {                                              /* y step */
-//             if (cur < ed) setPixelAA(x1+sx,y0, ed*fabs(cur));
-//             y0 += sy; dy -= xy; err += dx += xx; 
-//          }
-//       } while (dy < dx);              /* gradient negates -> close curves */
-//    }
-//    plotLineAA(x0,y0, x2,y2);              /* plot remaining needle to end */
-// }
-
 /*
     First thing to notice; Where the C++ uses implicit casing between numerical
     types, Rust does no such thing.
@@ -185,6 +144,8 @@ pub fn gradient(screen: &mut Screen) {
     learn workflow-wise.
 
     Todo: port the simpler algs first
+
+    Note: From and Into traits might work well here
 */
 
 // fn draw_aa_dcb(screen: &mut Screen, mut a: (i64, i64), mut b: (i64,i64), mut c: (i64, i64)) {
@@ -201,21 +162,21 @@ pub fn gradient(screen: &mut Screen) {
 //     }
 
 //     if cur != 0.0
-//     {                     /* no straight line */
+//     {                                                                    /* no straight line */
 //         sx = if a.0 < c.0 {1} else {-1};                             
-//         xx += sx; xx *= sx;          /* x step direction */
+//         xx += sx; xx *= sx;                                              /* x step direction */
 //         sy = if a.1 < c.1 {1} else {-1};
-//         yy += sy; yy *= sy;          /* y step direction */
-//         xy = 2*xx*yy; xx *= xx; yy *= yy;         /* differences 2nd degree */
-//         if (cur * (sx*sy)as f64) < 0.0 {                          /* negated curvature? */
+//         yy += sy; yy *= sy;                                              /* y step direction */
+//         xy = 2*xx*yy; xx *= xx; yy *= yy;                                /* differences 2nd degree */
+//         if (cur * (sx*sy)as f64) < 0.0 {                                 /* negated curvature? */
 //             xx = -xx; yy = -yy; xy = -xy; cur = -cur;
 //         }
-//         dx = (4.0*cur) * (sy*(b.0-a.0)+xx-xy) as f64;            /* differences 1st degree */
+//         dx = (4.0*cur) * (sy*(b.0-a.0)+xx-xy) as f64;                    /* differences 1st degree */
 //         dy = (4.0*cur) * (sx*(a.1-b.1)+yy-xy) as f64;
-//         xx += xx; yy += yy; err = (dx+dy) as i64 + xy;               /* error 1st step */
+//         xx += xx; yy += yy; err = (dx+dy) as i64 + xy;                   /* error 1st step */
 //         loop {                              
 //             cur =  (dx + xy as f64).min(-xy as f64 - dy);
-//             let ed = (dx+xy as f64).max(-xy as f64 - dy);           /* approximate error distance */
+//             let ed = (dx+xy as f64).max(-xy as f64 - dy);                /* approximate error distance */
 //             let ed = ed+2.0*ed*cur*cur/(4.0*ed*ed+cur*cur); // was u8 / f64, did that lose fraction?
 //             let pixel = 255;//(ed*((err as f64 - dx - dy - xy as f64).abs())) as u8;
 //             set_pixel(screen, a.0 as usize, a.1 as usize, math::Color::new(pixel, pixel, pixel));          /* plot curve */

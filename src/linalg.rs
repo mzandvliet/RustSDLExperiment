@@ -20,6 +20,13 @@ Todo much later:
 
 */
 
+
+/*
+    Implement projection to screen for objects defined in camera space, make sure that works first
+    Then, using the rest of the linalg lib we've built thus far, have objects in world space, with their own model spaces.
+
+*/
+
 extern crate float_cmp;
 
 use std::ops::*;
@@ -419,6 +426,7 @@ pub struct Mat2x2f {
     pub values: [Vec2f; 2],
 }
 
+// Todo! Switch initializer arguments to the more legible, non-transposed order
 impl Mat2x2f {
     pub fn new(
         m00: f32, m01:f32,
@@ -503,8 +511,6 @@ impl Mul<Vec2f> for Mat2x2f {
     Notes:
 
     Boy, writing out coefficient-wise multiply-adds manually is a laborous and errorprone endeavour.
-    There's probably a lot of cache trashing with this indexing method and memory layout
-    Initializing column-major matrices with columns written out as rows of text is seriously confusing
 */
 
 #[derive(Debug, PartialEq, Copy, Clone)]
