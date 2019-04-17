@@ -342,7 +342,19 @@ impl Index<usize> for Vec4f {
             1 => &self.y,
             2 => &self.z,
             3 => &self.w,
-            _ => &0.0
+            _ => panic!("Trying to index non-existing coefficient on Vec4f: {}", index)
+        }
+    }
+}
+
+impl IndexMut<usize> for Vec4f {
+    fn index_mut<'a>(&'a mut self, index: usize) -> &'a mut f32 {
+        match index {
+            0 => &mut self.x,
+            1 => &mut self.y,
+            2 => &mut self.z,
+            3 => &mut self.w,
+            _ => panic!("Trying to index non-existing coefficient on Vec4f: {}", index)
         }
     }
 }
@@ -450,6 +462,15 @@ pub struct Mat4x4f {
 }
 
 impl Mat4x4f {
+    pub fn zero() -> Mat4x4f {
+        Mat4x4f::from_columns(&[
+            Vec4f::new(0.0,0.0,0.0,0.0), // COLUMN 0 !!
+            Vec4f::new(0.0,0.0,0.0,0.0), // COLUMN 1 !!
+            Vec4f::new(0.0,0.0,0.0,0.0), // COLUMN 2 !!
+            Vec4f::new(0.0,0.0,0.0,0.0) // COLUMN 3 !!
+        ])
+    }
+
     pub fn new(
         m00: f32, m01:f32, m02: f32, m03:f32,
         m10: f32, m11:f32, m12: f32, m13:f32,
@@ -470,12 +491,22 @@ impl Mat4x4f {
     }
 
     pub fn transpose(&self) -> Mat4x4f {
-        Mat4x4f::new(
-            self[0][0], self[1][0], self[2][0], self[3][0],
-            self[0][1], self[1][1], self[2][1], self[3][1],
-            self[0][2], self[1][2], self[2][2], self[3][2],
-            self[0][3], self[1][3], self[2][3], self[3][3],
-        )
+        let mut m = Mat4x4f::zero();
+
+        for x in 0..4 {
+            for y in 0..4 {
+                m[[x,y]] = self[[y,x]];
+            }
+        }
+
+        m
+
+        // Mat4x4f::new(
+        //     self[0][0], self[1][0], self[2][0], self[3][0],
+        //     self[0][1], self[1][1], self[2][1], self[3][1],
+        //     self[0][2], self[1][2], self[2][2], self[3][2],
+        //     self[0][3], self[1][3], self[2][3], self[3][3],
+        // )
     }
 
     pub fn rotation_z(radians: f32) -> Mat4x4f {
@@ -505,6 +536,12 @@ impl Index<usize> for Mat4x4f {
     }
 }
 
+impl IndexMut<usize> for Mat4x4f {
+    fn index_mut<'a>(&'a mut self, index: usize) -> &'a mut Vec4f {
+        &mut self.values[index]
+    }
+}
+
 // [x,y], x is column, y is row
 impl Index<[usize; 2]> for Mat4x4f {
     type Output = f32;
@@ -514,9 +551,16 @@ impl Index<[usize; 2]> for Mat4x4f {
     }
 }
 
+impl IndexMut<[usize; 2]> for Mat4x4f {
+    fn index_mut<'a>(&'a mut self, index: [usize; 2]) -> &'a mut f32 {
+        &mut self.values[index[0]][index[1]]
+    }
+}
+
 impl Mul for Mat4x4f {
     type Output = Mat4x4f;
 
+    // Todo: use a macro to generate this
     fn mul(self, other: Self) -> Self {
         Mat4x4f::new(
             self[0][0] * other[0][0] + self[1][0] * other[0][1] + self[2][0] * other[0][2] + self[3][0] * other[0][3],
@@ -616,15 +660,27 @@ mod tests {
 
     #[test]
     fn test_mat4x4_vec3f_translate() {
+        // looks like row-major, but is column major in memory :P
         let m = Mat4x4f::new(
             1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
+            0.0, 2.0, 0.0, 0.0, // scale y by 2
             0.0, 0.0, 1.0, 0.0,
-            1.0, 2.0, 3.0, 1.0, // translation column values
+            1.0, 2.0, 3.0, 1.0, // translate by [1,2,3]
         );
 
         let v = Vec4f::new(1.0, 1.0, 1.0, 1.0);
 
-        assert_eq!(m * v, Vec4f::new(2.0, 3.0, 4.0, 1.0)); // Todo: approx_eq
+        assert_eq!(m * v, Vec4f::new(2.0, 4.0, 4.0, 1.0)); // Todo: approx_eq
+    }
+
+    #[test]
+    fn test_indexers() {
+        let mut x = Vec4f::new(0.0,0.0,0.0,1.0);
+        x[1] = 1.0;
+
+        let mut m = Mat4x4f::zero();
+
+        m[0] = Vec4f::new(0.0,0.0,0.0,1.0);
+        m[[0, 1]] = 0.0;
     }
 }
