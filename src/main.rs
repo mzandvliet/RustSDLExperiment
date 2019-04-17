@@ -12,6 +12,8 @@ use std::{thread, time};
 mod draw;
 mod linalg;
 
+use linalg::*;
+
 /*
     Prototype:
     Define a cube using 3d points
@@ -24,7 +26,7 @@ mod linalg;
 
 
 fn main() {
-    do_game().unwrap();
+    //do_game().unwrap();
 }
 
 fn do_game() -> Result<(), String> {

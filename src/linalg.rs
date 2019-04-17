@@ -20,7 +20,10 @@ Todo much later:
 
 */
 
+extern crate float_cmp;
+
 use std::ops::*;
+use float_cmp::{Ulps, ApproxEq};
 
 /*--------------------
     Vec2f
@@ -203,6 +206,35 @@ impl Mul<f32> for Vec3f {
     }
 }
 
+// Todo: will I always need to implemented for copy AND ref separately?
+impl Mul<&f32> for Vec3f {
+    type Output = Self;
+
+    fn mul(self, other: &f32) -> Self {
+        Vec3f {
+            x: self.x * other,
+            y: self.y * other,
+            z: self.z * other
+        }
+    }
+}
+
+impl MulAssign<f32> for Vec3f {
+    fn mul_assign(&mut self, other: f32) {
+        self.x *= other;
+        self.y *= other;
+        self.z *= other;
+    }
+}
+
+impl MulAssign<&f32> for Vec3f {
+    fn mul_assign(&mut self, other: &f32) {
+        self.x *= other;
+        self.y *= other;
+        self.z *= other;
+    }
+}
+
 impl Div for Vec3f {
     type Output = Self;
 
@@ -224,6 +256,14 @@ impl Div<f32> for Vec3f {
             y: self.y / other,
             z: self.z / other
         }
+    }
+}
+
+// Todo: can we do reinterpret cast? We're now cloning...
+// Feels like you'd slide into unsafe transmute_cast territory
+impl From<&Vec4f> for Vec3f {
+    fn from(item: &Vec4f) -> Self {
+        Vec3f::new(item.x, item.y, item.z)
     }
 }
 
@@ -359,11 +399,22 @@ impl IndexMut<usize> for Vec4f {
     }
 }
 
+impl ApproxEq for Vec4f {
+    type Flt = f32;
+
+    fn approx_eq(&self, other: &Self, epsilon: <f32 as ApproxEq>::Flt, ulps: <<f32 as ApproxEq>::Flt as Ulps>::U) -> bool {
+        self.x.approx_eq(&other.x, epsilon, ulps) &&
+        self.y.approx_eq(&other.y, epsilon, ulps) &&
+        self.z.approx_eq(&other.z, epsilon, ulps) &&
+        self.w.approx_eq(&other.w, epsilon, ulps)
+    }
+}
+
 /*--------------------
     Mat2x2
 --------------------*/ 
     
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Mat2x2f {
     pub values: [Vec2f; 2],
 }
@@ -456,7 +507,7 @@ impl Mul<Vec2f> for Mat2x2f {
     Initializing column-major matrices with columns written out as rows of text is seriously confusing
 */
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Mat4x4f {
     pub values: [Vec4f; 4],
 }
@@ -468,6 +519,15 @@ impl Mat4x4f {
             Vec4f::new(0.0,0.0,0.0,0.0), // COLUMN 1 !!
             Vec4f::new(0.0,0.0,0.0,0.0), // COLUMN 2 !!
             Vec4f::new(0.0,0.0,0.0,0.0) // COLUMN 3 !!
+        ])
+    }
+
+    pub fn identity() -> Mat4x4f {
+        Mat4x4f::from_columns(&[
+            Vec4f::new(1.0,0.0,0.0,0.0), // COLUMN 0 !!
+            Vec4f::new(0.0,1.0,0.0,0.0), // COLUMN 1 !!
+            Vec4f::new(0.0,0.0,1.0,0.0), // COLUMN 2 !!
+            Vec4f::new(0.0,0.0,0.0,1.0) // COLUMN 3 !!
         ])
     }
 
@@ -509,6 +569,55 @@ impl Mat4x4f {
         // )
     }
 
+    // Lengyel
+    pub fn inverse(&self) -> Mat4x4f {
+        let a: Vec3f = (&self[0]).into();
+        let b: Vec3f = (&self[1]).into();
+        let c: Vec3f = (&self[2]).into();
+        let d: Vec3f = (&self[3]).into();
+
+        let x = &self[[3,0]];
+        let y = &self[[3,1]];
+        let z = &self[[3,2]];
+        let w = &self[[3,3]];
+
+        let mut s = Vec3f::cross(a, b);
+        let mut t = Vec3f::cross(c, d);
+        let mut u = a * y - b * x;
+        let mut v = c * w - d * z;
+
+        // Todo: needs a det(m) == 0 check, otherwise inf->nan
+        let inv_det = 1.0 / (Vec3f::dot(s, v) + Vec3f::dot(t, u));
+
+        // println!("det: {:?}", (Vec3f::dot(s, v) + Vec3f::dot(t, u)));
+
+        s *= inv_det;
+        t *= inv_det;
+        u *= inv_det;
+        v *= inv_det;
+
+        let r0 = Vec3f::cross(b, v) + t * y;
+        let r1 = Vec3f::cross(v, a) - t * x;
+        let r2 = Vec3f::cross(d, u) + s * w;
+        let r3 = Vec3f::cross(u, c) - s * z;
+
+        Mat4x4f::new(
+            r0.x, r0.y, r0.z, -Vec3f::dot(b, t),
+            r1.x, r1.y, r1.z,  Vec3f::dot(a, t),
+            r2.x, r2.y, r2.z, -Vec3f::dot(d, s),
+            r3.x, r3.y, r3.z,  Vec3f::dot(c, s),
+        )
+    }
+
+    pub fn translation(x: f32, y: f32, z: f32) -> Mat4x4f {
+        Mat4x4f::new(
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            x  , y  , z  , 1.0
+        )
+    }
+
     pub fn rotation_z(radians: f32) -> Mat4x4f {
         Mat4x4f::new(
             f32::cos(radians), f32::sin(radians), 0.0, 0.0,
@@ -518,12 +627,21 @@ impl Mat4x4f {
         )
     }
 
-    pub fn scale(factor: f32) -> Mat4x4f {
+    pub fn scale_uniform(factor: f32) -> Mat4x4f {
         Mat4x4f::new(
             factor, 0.0, 0.0, 0.0,
             0.0, factor, 0.0, 0.0,
             0.0, 0.0, factor, 0.0,
-            0.0, 0.0, 0.0, factor
+            0.0, 0.0, 0.0, 1.0
+        )
+    }
+
+    pub fn scale(x: f32, y: f32, z: f32) -> Mat4x4f {
+        Mat4x4f::new(
+            x, 0.0, 0.0, 0.0,
+            0.0, y, 0.0, 0.0,
+            0.0, 0.0, z, 0.0,
+            0.0, 0.0, 0.0, 1.0
         )
     }
 }
@@ -599,6 +717,17 @@ impl Mul<Vec4f> for Mat4x4f {
     }
 }
 
+impl ApproxEq for Mat4x4f {
+    type Flt = f32;
+
+    fn approx_eq(&self, other: &Self, epsilon: <f32 as ApproxEq>::Flt, ulps: <<f32 as ApproxEq>::Flt as Ulps>::U) -> bool {
+        self[0].approx_eq(&other[0], epsilon, ulps) &&
+        self[1].approx_eq(&other[1], epsilon, ulps) &&
+        self[2].approx_eq(&other[2], epsilon, ulps) &&
+        self[3].approx_eq(&other[3], epsilon, ulps)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -656,6 +785,18 @@ mod tests {
         let v = Vec4f::new(1.0, 0.0, 0.0, 0.0);
 
         assert_eq!(m * v, Vec4f::new(0.0, 1.0, 0.0, 0.0)); // Todo: approx_eq
+    }
+
+    #[test]
+    fn test_inverse() {
+        //let m_scale = Mat4x4f::scale(2.0, 3.0, 4.0);
+        let m_rot = Mat4x4f::rotation_z(3.1423);
+        let m = m_rot; //m_scale * 
+        println!("m : {:?}", m);
+        let m_inv = m.inverse();
+        println!("m': {:?}", m_inv);
+
+        assert!((m_inv * m).approx_eq(&Mat4x4f::identity(), 2.0 * ::std::f32::EPSILON, 2));
     }
 
     #[test]

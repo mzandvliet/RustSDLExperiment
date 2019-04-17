@@ -3,3 +3,4 @@
 /*.dll
 gnu-mingw/
 msvc/
+.vscode/
