@@ -601,11 +601,20 @@ impl Mat4x4f {
         let r2 = Vec3f::cross(d, u) + s * w;
         let r3 = Vec3f::cross(u, c) - s * z;
 
-        Mat4x4f::new(
-            r0.x, r0.y, r0.z, -Vec3f::dot(b, t),
-            r1.x, r1.y, r1.z,  Vec3f::dot(a, t),
-            r2.x, r2.y, r2.z, -Vec3f::dot(d, s),
-            r3.x, r3.y, r3.z,  Vec3f::dot(c, s),
+        // Lol, argument ordering foiled me again!
+        // Todo: I really should switch to writing the initializers in row major, letting constructor mangle it into column major.
+        // Mat4x4f::new(
+        //     r0.x, r0.y, r0.z, -Vec3f::dot(b, t),
+        //     r1.x, r1.y, r1.z,  Vec3f::dot(a, t),
+        //     r2.x, r2.y, r2.z, -Vec3f::dot(d, s),
+        //     r3.x, r3.y, r3.z,  Vec3f::dot(c, s),
+        // )
+
+         Mat4x4f::new(
+            r0.x, r1.x, r2.x, r3.x,
+            r0.y, r1.y, r2.y, r3.y,
+            r0.z, r1.z, r2.z, r3.z,
+            -Vec3f::dot(b, t), Vec3f::dot(a, t), -Vec3f::dot(d, s), Vec3f::dot(c, s),
         )
     }
 
@@ -789,9 +798,10 @@ mod tests {
 
     #[test]
     fn test_inverse() {
-        //let m_scale = Mat4x4f::scale(2.0, 3.0, 4.0);
+        let m_scale = Mat4x4f::scale(2.0, 3.0, 4.0);
         let m_rot = Mat4x4f::rotation_z(3.1423);
-        let m = m_rot; //m_scale * 
+        //let m_trs = Mat4x4f::translation(1.0, 0.5, -0.33);
+        let m = m_scale * m_rot;// * m_trs; 
         println!("m : {:?}", m);
         let m_inv = m.inverse();
         println!("m': {:?}", m_inv);
