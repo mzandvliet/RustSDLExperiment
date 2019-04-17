@@ -515,32 +515,32 @@ pub struct Mat4x4f {
 impl Mat4x4f {
     pub fn zero() -> Mat4x4f {
         Mat4x4f::from_columns(&[
-            Vec4f::new(0.0,0.0,0.0,0.0), // COLUMN 0 !!
-            Vec4f::new(0.0,0.0,0.0,0.0), // COLUMN 1 !!
-            Vec4f::new(0.0,0.0,0.0,0.0), // COLUMN 2 !!
-            Vec4f::new(0.0,0.0,0.0,0.0) // COLUMN 3 !!
+            Vec4f::new(0.0,0.0,0.0,0.0),
+            Vec4f::new(0.0,0.0,0.0,0.0),
+            Vec4f::new(0.0,0.0,0.0,0.0),
+            Vec4f::new(0.0,0.0,0.0,0.0)
         ])
     }
 
     pub fn identity() -> Mat4x4f {
         Mat4x4f::from_columns(&[
-            Vec4f::new(1.0,0.0,0.0,0.0), // COLUMN 0 !!
-            Vec4f::new(0.0,1.0,0.0,0.0), // COLUMN 1 !!
-            Vec4f::new(0.0,0.0,1.0,0.0), // COLUMN 2 !!
-            Vec4f::new(0.0,0.0,0.0,1.0) // COLUMN 3 !!
+            Vec4f::new(1.0,0.0,0.0,0.0),
+            Vec4f::new(0.0,1.0,0.0,0.0),
+            Vec4f::new(0.0,0.0,1.0,0.0),
+            Vec4f::new(0.0,0.0,0.0,1.0)
         ])
     }
 
     pub fn new(
-        m00: f32, m01:f32, m02: f32, m03:f32,
-        m10: f32, m11:f32, m12: f32, m13:f32,
-        m20: f32, m21:f32, m22: f32, m23:f32,
-        m30: f32, m31:f32, m32: f32, m33:f32) -> Mat4x4f {
+        m00: f32, m10:f32, m20: f32, m30:f32,
+        m01: f32, m11:f32, m21: f32, m31:f32,
+        m02: f32, m12:f32, m22: f32, m32:f32,
+        m03: f32, m13:f32, m23: f32, m33:f32) -> Mat4x4f {
         Mat4x4f::from_columns(&[
-            Vec4f::new(m00, m01, m02, m03), // COLUMN 0 !!
-            Vec4f::new(m10, m11, m12, m13), // COLUMN 1 !!
-            Vec4f::new(m20, m21, m22, m23), // COLUMN 2 !!
-            Vec4f::new(m30, m31, m32, m33) // COLUMN 3 !!
+            Vec4f::new(m00, m01, m02, m03),
+            Vec4f::new(m10, m11, m12, m13),
+            Vec4f::new(m20, m21, m22, m23),
+            Vec4f::new(m30, m31, m32, m33)
         ])
     }
 
@@ -576,9 +576,13 @@ impl Mat4x4f {
         let c: Vec3f = (&self[2]).into();
         let d: Vec3f = (&self[3]).into();
 
-        let x = &self[[3,0]];
-        let y = &self[[3,1]];
-        let z = &self[[3,2]];
+        // let x = &self[[3,0]];
+        // let y = &self[[3,1]];
+        // let z = &self[[3,2]];
+        // let w = &self[[3,3]];
+        let x = &self[[0,3]];
+        let y = &self[[1,3]];
+        let z = &self[[2,3]];
         let w = &self[[3,3]];
 
         let mut s = Vec3f::cross(a, b);
@@ -601,36 +605,34 @@ impl Mat4x4f {
         let r2 = Vec3f::cross(d, u) + s * w;
         let r3 = Vec3f::cross(u, c) - s * z;
 
-        // Lol, argument ordering foiled me again!
-        // Todo: I really should switch to writing the initializers in row major, letting constructor mangle it into column major.
-        // Mat4x4f::new(
-        //     r0.x, r0.y, r0.z, -Vec3f::dot(b, t),
-        //     r1.x, r1.y, r1.z,  Vec3f::dot(a, t),
-        //     r2.x, r2.y, r2.z, -Vec3f::dot(d, s),
-        //     r3.x, r3.y, r3.z,  Vec3f::dot(c, s),
-        // )
-
-         Mat4x4f::new(
-            r0.x, r1.x, r2.x, r3.x,
-            r0.y, r1.y, r2.y, r3.y,
-            r0.z, r1.z, r2.z, r3.z,
-            -Vec3f::dot(b, t), Vec3f::dot(a, t), -Vec3f::dot(d, s), Vec3f::dot(c, s),
+        Mat4x4f::new(
+            r0.x, r0.y, r0.z, -Vec3f::dot(b, t),
+            r1.x, r1.y, r1.z,  Vec3f::dot(a, t),
+            r2.x, r2.y, r2.z, -Vec3f::dot(d, s),
+            r3.x, r3.y, r3.z,  Vec3f::dot(c, s),
         )
+
+        //  Mat4x4f::new(
+        //     r0.x, r1.x, r2.x, r3.x,
+        //     r0.y, r1.y, r2.y, r3.y,
+        //     r0.z, r1.z, r2.z, r3.z,
+        //     -Vec3f::dot(b, t), Vec3f::dot(a, t), -Vec3f::dot(d, s), Vec3f::dot(c, s),
+        // )
     }
 
     pub fn translation(x: f32, y: f32, z: f32) -> Mat4x4f {
         Mat4x4f::new(
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            x  , y  , z  , 1.0
+            1.0, 0.0, 0.0, x,
+            0.0, 1.0, 0.0, y,
+            0.0, 0.0, 1.0, z,
+            0.0, 0.0, 0.0, 1.0
         )
     }
 
     pub fn rotation_z(radians: f32) -> Mat4x4f {
         Mat4x4f::new(
-            f32::cos(radians), f32::sin(radians), 0.0, 0.0,
-            -f32::sin(radians), f32::cos(radians), 0.0, 0.0,
+            f32::cos(radians), -f32::sin(radians), 0.0, 0.0,
+            f32::sin(radians), f32::cos(radians), 0.0, 0.0,
             0.0, 0.0, 1.0, 0.0,
             0.0, 0.0, 0.0, 1.0
         )
@@ -669,7 +671,7 @@ impl IndexMut<usize> for Mat4x4f {
     }
 }
 
-// [x,y], x is column, y is row
+// NOTE: [x,y], x is column, y is row. Lengyel has this the other way around.
 impl Index<[usize; 2]> for Mat4x4f {
     type Output = f32;
 
@@ -767,7 +769,7 @@ mod tests {
     fn test_cross_vec3f() {
         let a = Vec3f { x: 1.0, y: 0.0, z: 0.0 };
         let b = Vec3f { x: 0.0, y: 1.0, z: 0.0 };
-        assert_eq!(Vec3f::cross(a,b), Vec3f::new(0.0, 0.0, 1.0)); // Todo: approx_eq
+        assert_eq!(Vec3f::cross(a,b), Vec3f::new(0.0, 0.0, 1.0));
     }
 
     #[test]
@@ -779,7 +781,7 @@ mod tests {
 
         let v = Vec2f::new(1.0, 0.0);
 
-        assert_eq!(m * v, Vec2f::new(0.0, 1.0)); // Todo: approx_eq
+        assert_eq!(m * v, Vec2f::new(0.0, 1.0));
     }
 
     #[test]
@@ -793,15 +795,15 @@ mod tests {
 
         let v = Vec4f::new(1.0, 0.0, 0.0, 0.0);
 
-        assert_eq!(m * v, Vec4f::new(0.0, 1.0, 0.0, 0.0)); // Todo: approx_eq
+        assert_eq!(m * v, Vec4f::new(0.0, 1.0, 0.0, 0.0));
     }
 
     #[test]
     fn test_inverse() {
         let m_scale = Mat4x4f::scale(2.0, 3.0, 4.0);
         let m_rot = Mat4x4f::rotation_z(3.1423);
-        //let m_trs = Mat4x4f::translation(1.0, 0.5, -0.33);
-        let m = m_scale * m_rot;// * m_trs; 
+        let m_trs = Mat4x4f::translation(0.0, 0.0, 1.0);
+        let m = m_rot * m_scale * m_trs;
         println!("m : {:?}", m);
         let m_inv = m.inverse();
         println!("m': {:?}", m_inv);
@@ -811,17 +813,16 @@ mod tests {
 
     #[test]
     fn test_mat4x4_vec3f_translate() {
-        // looks like row-major, but is column major in memory :P
         let m = Mat4x4f::new(
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 2.0, 0.0, 0.0, // scale y by 2
-            0.0, 0.0, 1.0, 0.0,
-            1.0, 2.0, 3.0, 1.0, // translate by [1,2,3]
+            1.0, 0.0, 0.0, 1.0,
+            0.0, 2.0, 0.0, 2.0, // scale y by 2
+            0.0, 0.0, 1.0, 3.0,
+            0.0, 0.0, 0.0, 1.0, // translate by [1,2,3]
         );
 
         let v = Vec4f::new(1.0, 1.0, 1.0, 1.0);
 
-        assert_eq!(m * v, Vec4f::new(2.0, 4.0, 4.0, 1.0)); // Todo: approx_eq
+        assert_eq!(m * v, Vec4f::new(2.0, 4.0, 4.0, 1.0));
     }
 
     #[test]
