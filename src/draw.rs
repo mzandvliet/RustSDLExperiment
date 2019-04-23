@@ -49,6 +49,8 @@ pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: Color) {
 
 // Bresenham line drawing algorithm, as per this wonderful paper:
 // http://members.chello.at/~easyfilter/Bresenham.pdf
+// Todo: assume points are valid screen coords, and don't do any
+// bounds checks. Perform rigorous clipping earlier in code path.
 pub fn line(screen: &mut Screen, a: (i32, i32), b: (i32, i32)) {
     let mut x0: i32 = a.0;
     let mut y0: i32 = a.1;

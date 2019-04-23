@@ -213,13 +213,57 @@ fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv:
 
     let screen_dims = (screen.width as i32, screen.height as i32);
 
-    let p1s = clip_line((p1.x as i32, p1.y as i32), screen_dims);
-    let p2s = clip_line((p2.x as i32, p2.y as i32), screen_dims);
-    let p3s = clip_line((p3.x as i32, p3.y as i32), screen_dims);
+    let p1s = clip_point((p1.x as i32, p1.y as i32), screen_dims);
+    let p2s = clip_point((p2.x as i32, p2.y as i32), screen_dims);
+    let p3s = clip_point((p3.x as i32, p3.y as i32), screen_dims);
 
     // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
 
     draw::triangle(screen, p1s, p2s, p3s);
+}
+
+fn is_line_visible(a: (i32, i32), b: (i32, i32), s: (i32, i32)) -> bool {
+    is_point_visible(a, s) || is_point_visible(b, s)
+}
+
+fn is_point_visible(p: (i32, i32), screen_dims: (i32, i32)) -> bool {
+    p.0 >= 0 && p.0 < screen_dims.0 &&
+    p.1 >= 0 && p.1 < screen_dims.1
+}
+
+fn clip_line(a: (i32, i32), b: (i32, i32), s: (i32, i32)) -> ((i32,i32),(i32,i32)) {
+    // let bot_intersect = intersect_line((a, b), 0, 0);
+    // if bot_intersect.0 >= 0 && bot_intersect.1 < s.1 {
+        // Wait, now I still don't know whether a, b, or both points should be clipped
+        // Maybe I don't need to know...
+    // }
+
+    (a, b)
+}
+
+fn intersect_line(a: ((i32,i32),(i32,i32)), slope: i32, inter: i32) -> (i32, i32) {
+    let a_rr = slope_intercept(a);
+
+    let x = intersect(a_rr.0, a_rr.1, slope, inter);
+    (x, a_rr.0 * x + a_rr.1)
+}
+
+fn intersect_lines(a: ((i32,i32),(i32,i32)), b: ((i32,i32),(i32,i32))) -> (i32, i32) {
+    let a_rr = slope_intercept(a);
+    let b_rr = slope_intercept(b);
+
+    let x = intersect(a_rr.0, a_rr.1, b_rr.0, b_rr.1);
+    (x, a_rr.0 * x + a_rr.1)
+}
+
+fn slope_intercept(a: ((i32,i32),(i32,i32))) -> (i32, i32) {
+    let slope = ((a.0).1 - (a.1).1) / ((a.0).0 - (a.1).0);
+    let inter = (a.0).1 - slope * (a.0).0;
+    (slope, inter)
+}
+
+fn intersect(a: i32, b: i32, c: i32, d: i32) -> i32 {
+    (d - b) / (a - c) // Todo: precision, man. Rounding.
 }
 
 /*
@@ -228,23 +272,23 @@ If partially on screen, clip the line properly, without changing its geometry
 
 For now, I'm just nudging the points into valid screen bounds
 */
-fn clip_line(p: (i32, i32), s: (i32, i32)) -> (i32, i32) {
-    (i32::min(i32::max(0, p.0), s.0-1),
-     i32::min(i32::max(0, p.1), s.1-1))
+fn clip_point(point: (i32, i32), screen_dims: (i32, i32)) -> (i32, i32) {
+    (i32::min(i32::max(0, point.0), screen_dims.0-1),
+     i32::min(i32::max(0, point.1), screen_dims.1-1))
 }
 
-fn perspective_divide(p: Vec4f) -> Vec4f {
-    Vec4f::new(p.x / p.z, p.y / p.z, p.z, 1.0)
+fn perspective_divide(point: Vec4f) -> Vec4f {
+    Vec4f::new(point.x / point.z, point.y / point.z, point.z, 1.0)
 }
 
 // Todo: don't hardcode the resolution
-fn to_screenspace(p: Vec4f) -> Vec4f {
+fn to_screenspace(point: Vec4f) -> Vec4f {
     let w = 1.33;
     let h = 1.0;
-    Vec4f::new((p.x + 0.5 * w) / w, p.y + 0.5 * h, p.z, 1.0)
+    Vec4f::new((point.x + 0.5 * w) / w, point.y + 0.5 * h, point.z, 1.0)
 }
 
-fn to_pixelspace(p: Vec4f) -> Vec4f {
+fn to_pixelspace(point: Vec4f) -> Vec4f {
     // Note, we're inverting y here
-    Vec4f::new(p.x * 400.0, 300.0 - p.y * 300.0, p.z, 1.0)
+    Vec4f::new(point.x * 400.0, 300.0 - point.y * 300.0, point.z, 1.0)
 }
