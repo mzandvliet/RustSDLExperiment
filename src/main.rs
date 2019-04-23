@@ -138,10 +138,8 @@ fn do_game() -> Result<(), String> {
 
         // Rendering
 
-        // Clear
+        // Clear our buffer
         draw::clear(&mut screen);
-        canvas.set_draw_color(sdl2::pixels::Color::RGB(0, 0, 0));
-        canvas.clear();
 
         // Cam setup
         let cam_mat = Mat4x4f::translation(0.0, 0.0, -8.0);
