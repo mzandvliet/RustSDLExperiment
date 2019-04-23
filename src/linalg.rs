@@ -12,18 +12,12 @@ For now, let's create only the types we need.
 
 Todo:
 - Impl approx_eq for testing https://docs.rs/approx/0.3.2/approx/
+- Impl traits for references to types, such that caller doesn't need to explicitly dereference
 
 Todo much later:
 - Specification of generic Scalar type trait bound
 - Write vector arithmetic such that number of dimensions is a generic argument
-- partialEq, Eq and Hash all don't work with f32
-
-*/
-
-
-/*
-    Implement projection to screen for objects defined in camera space, make sure that works first
-    Then, using the rest of the linalg lib we've built thus far, have objects in world space, with their own model spaces.
+- partialEq, Eq and Hash all don't work with f32, but work fine for fixed point types
 
 */
 
@@ -567,6 +561,7 @@ impl Mat4x4f {
 
         m
 
+        // Literal:
         // Mat4x4f::new(
         //     self[0][0], self[1][0], self[2][0], self[3][0],
         //     self[0][1], self[1][1], self[2][1], self[3][1],
@@ -575,17 +570,16 @@ impl Mat4x4f {
         // )
     }
 
-    // Lengyel
+    // As per Lengyel's book Foundations of Game Engine Development
+    // Inverts any 4x4 using optimal amount of operations
+    // Todo: since we'll be using Transform matrices a lot,
+    // have a specialized function for inverting using 3x3 submatrix.
     pub fn inverse(&self) -> Mat4x4f {
         let a: Vec3f = (&self[0]).into();
         let b: Vec3f = (&self[1]).into();
         let c: Vec3f = (&self[2]).into();
         let d: Vec3f = (&self[3]).into();
 
-        // let x = &self[[3,0]];
-        // let y = &self[[3,1]];
-        // let z = &self[[3,2]];
-        // let w = &self[[3,3]];
         let x = &self[[0,3]];
         let y = &self[[1,3]];
         let z = &self[[2,3]];
@@ -596,7 +590,7 @@ impl Mat4x4f {
         let mut u = a * y - b * x;
         let mut v = c * w - d * z;
 
-        // Todo: needs a det(m) == 0 check, otherwise inf->nan
+        // Todo: needs a det(m) == 0 check, otherwise we get inf->nan
         let inv_det = 1.0 / (Vec3f::dot(s, v) + Vec3f::dot(t, u));
 
         // println!("det: {:?}", (Vec3f::dot(s, v) + Vec3f::dot(t, u)));
@@ -617,13 +611,6 @@ impl Mat4x4f {
             r2.x, r2.y, r2.z, -Vec3f::dot(d, s),
             r3.x, r3.y, r3.z,  Vec3f::dot(c, s),
         )
-
-        //  Mat4x4f::new(
-        //     r0.x, r1.x, r2.x, r3.x,
-        //     r0.y, r1.y, r2.y, r3.y,
-        //     r0.z, r1.z, r2.z, r3.z,
-        //     -Vec3f::dot(b, t), Vec3f::dot(a, t), -Vec3f::dot(d, s), Vec3f::dot(c, s),
-        // )
     }
 
     pub fn translation(x: f32, y: f32, z: f32) -> Mat4x4f {
@@ -713,7 +700,7 @@ impl IndexMut<[usize; 2]> for Mat4x4f {
 impl Mul for Mat4x4f {
     type Output = Mat4x4f;
 
-    // Todo: use a macro to generate this
+    // Todo: use a macro to generate this, obviously
     fn mul(self, other: Self) -> Self {
         Mat4x4f::new(
             self[0][0] * other[0][0] + self[1][0] * other[0][1] + self[2][0] * other[0][2] + self[3][0] * other[0][3],
@@ -742,6 +729,7 @@ impl Mul for Mat4x4f {
 impl Mul<Vec4f> for Mat4x4f {
     type Output = Vec4f;
 
+    // Todo: use a macro to generate this, obviously
     fn mul(self, v: Vec4f) -> Vec4f {
         Vec4f::new(
             self[0][0] * v[0] + self[1][0] * v[1] + self[2][0] * v[2] + self[3][0] * v[3],

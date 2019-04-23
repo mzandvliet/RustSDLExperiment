@@ -16,14 +16,21 @@ use linalg::*;
 
 /*
     Prototype:
-    Define a cube using 3d points
-    Project to 2d screen using a matrix
-    Draw using bresenham
+    Define a cube using 3d points X
+    Transform it using matrices X
+    Bring into camera space using inverse cam matrix X
+    Draw using bresenham X
+    Project to 2d screen using a proper projection matrix (with configurable FOV)
+
+    Use From/Into trait impls to get around all the explicit casting
+    Pass by immutable reference more, instead of by copy. This is not C#, mister.
 
     Then:
-    Implement  Lengyel's book, plus a rasterizer
-
-    use From/Into to get around all the explicit casting
+    Implement line clipping
+    Implement frustum culling
+    Implement triangle clipping
+    Implement a solid, shaded, triangle rasterizer
+    Implement more of Lengyel's book
 */
 
 
@@ -40,7 +47,7 @@ fn do_game() -> Result<(), String> {
     const SCREEN_BUFF_SIZE: usize = (WIDTH * HEIGHT * 3) as usize;
 
     let window = video_subsystem
-        .window("rust-sdl-demo", WIDTH, HEIGHT)
+        .window("Spinning Cube", WIDTH, HEIGHT)
         .position_centered()
         .build()
         .map_err(|e| e.to_string())?;
@@ -58,7 +65,7 @@ fn do_game() -> Result<(), String> {
     canvas.clear();
     canvas.present();
 
-    // Our screen buffer
+    // Our cpu-side screen buffer
     let screen_buffer: Box<[u8]> = Box::new([0; SCREEN_BUFF_SIZE]);
     let mut screen = draw::Screen {
         buffer: screen_buffer,
@@ -66,13 +73,12 @@ fn do_game() -> Result<(), String> {
         height: HEIGHT as usize,
     };
     
-    // Texture used to blit our screen buffer to canvas
+    // Texture used to blit our screen buffer to SDL canvas
     let texture_creator : TextureCreator<_> = canvas.texture_creator();
     let mut texture = texture_creator.create_texture_streaming(PixelFormatEnum::RGB24, WIDTH, HEIGHT).map_err(|e| e.to_string())?;
 
     let mut event_pump = sdl_context.event_pump()?;
     let mut frame : u32 = 0;
-
     let mut time = 0.0;
 
     'running: loop {
@@ -83,11 +89,13 @@ fn do_game() -> Result<(), String> {
                     break 'running;
                 }
                 Event::KeyDown { keycode: Some(Keycode::Space), repeat: false, .. } => {
-                    //do something
+                    //do something interesting
                 }
                 _ => {}
             }
         }
+
+        // Do some game logic
 
         // Rendering
 
@@ -118,15 +126,32 @@ fn do_game() -> Result<(), String> {
             // front
             0, 1, 2, 
             0, 2, 3,
-            
+
             // back
             4, 5, 6, 
-            4, 6, 7,);
+            4, 6, 7,
 
-        // rotating in world space
+            // left
+            4, 5, 1, 
+            4, 1, 0,
+
+            // right
+            3, 2, 6, 
+            3, 6, 7,
+            
+            // top
+            1, 5, 6, 
+            1, 6, 2,
+
+            // bottom
+            0, 4, 7, 
+            0, 7, 3);
+
+        // rotate and translate it in world space
         let tri_mat = Mat4x4f::translation(0.0, f32::sin(time * 0.5), 0.0) * Mat4x4f::rotation_y(time * 1.3456);
         
-        for i in 0..4 {
+        // draw all tris in sequence
+        for i in 0..12 {
             draw_triangle(
                 &verts[tris[i*3 + 0]],
                 &verts[tris[i*3 + 1]],
@@ -141,7 +166,7 @@ fn do_game() -> Result<(), String> {
             buffer.copy_from_slice(screen.buffer.as_ref());
         })?;
 
-        // Blit
+        // Blit it to canvas
         let screen_rect = Rect::new(0,0,WIDTH,HEIGHT);
         canvas.copy(&texture, screen_rect, screen_rect)?;
 
@@ -160,7 +185,7 @@ fn do_game() -> Result<(), String> {
 }
 
 fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv: &Mat4x4f, screen: &mut draw::Screen) {
-    // Todo: split into multiple stages, of course
+    // Todo: split this into multiple stages, of course
 
     let p1 = *obj_mat * *p1;
     let p2 = *obj_mat * *p2;
@@ -172,24 +197,24 @@ fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv:
     let p3 = *cam_inv * p3;
 
     // Projection as separate steps
-    // todo: projection matrix
-    let p1 = perspective(p1);
-    let p2 = perspective(p2);
-    let p3 = perspective(p3);
+    // todo: encode these steps in an actual 4x4 projection matrix
+    let p1 = perspective_divide(p1);
+    let p2 = perspective_divide(p2);
+    let p3 = perspective_divide(p3);
 
-    let p1 = screenspace(p1);
-    let p2 = screenspace(p2);
-    let p3 = screenspace(p3);
+    let p1 = to_screenspace(p1);
+    let p2 = to_screenspace(p2);
+    let p3 = to_screenspace(p3);
 
-    let p1 = pixelspace(p1);
-    let p2 = pixelspace(p2);
-    let p3 = pixelspace(p3);
+    let p1 = to_pixelspace(p1);
+    let p2 = to_pixelspace(p2);
+    let p3 = to_pixelspace(p3);
 
     let screen_dims = (screen.width as i32, screen.height as i32);
 
-    let p1s = clip((p1.x as i32, p1.y as i32), screen_dims);
-    let p2s = clip((p2.x as i32, p2.y as i32), screen_dims);
-    let p3s = clip((p3.x as i32, p3.y as i32), screen_dims);
+    let p1s = clip_line((p1.x as i32, p1.y as i32), screen_dims);
+    let p2s = clip_line((p2.x as i32, p2.y as i32), screen_dims);
+    let p3s = clip_line((p3.x as i32, p3.y as i32), screen_dims);
 
     // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
 
@@ -199,22 +224,26 @@ fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv:
 /*
 Todo: When a line is fully off screen, don't draw it
 If partially on screen, clip the line properly, without changing its geometry
+
+For now, I'm just nudging the points into valid screen bounds
 */
-fn clip(p: (i32, i32), s: (i32, i32)) -> (i32, i32) {
+fn clip_line(p: (i32, i32), s: (i32, i32)) -> (i32, i32) {
     (i32::min(i32::max(0, p.0), s.0-1),
      i32::min(i32::max(0, p.1), s.1-1))
 }
 
-fn perspective(p: Vec4f) -> Vec4f {
+fn perspective_divide(p: Vec4f) -> Vec4f {
     Vec4f::new(p.x / p.z, p.y / p.z, p.z, 1.0)
 }
 
-fn screenspace(p: Vec4f) -> Vec4f {
+// Todo: don't hardcode the resolution
+fn to_screenspace(p: Vec4f) -> Vec4f {
     let w = 1.33;
     let h = 1.0;
     Vec4f::new((p.x + 0.5 * w) / w, p.y + 0.5 * h, p.z, 1.0)
 }
 
-fn pixelspace(p: Vec4f) -> Vec4f {
+fn to_pixelspace(p: Vec4f) -> Vec4f {
+    // Note, we're inverting y here
     Vec4f::new(p.x * 400.0, 300.0 - p.y * 300.0, p.z, 1.0)
 }
