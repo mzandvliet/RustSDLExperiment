@@ -76,6 +76,12 @@ pub fn line(screen: &mut Screen, a: (i32, i32), b: (i32, i32)) {
     }
 }
 
+pub fn triangle(screen: &mut Screen, a: (i32, i32), b: (i32, i32), c: (i32, i32)) {
+    line(screen, a, b);
+    line(screen, b, c);
+    line(screen, c, a);
+}
+
 pub fn circle(screen: &mut Screen, a: (i32, i32), radius: i32) {
     let mut x: i32  = -radius;
     let mut y: i32 = 0;
