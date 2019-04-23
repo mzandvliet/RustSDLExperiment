@@ -81,6 +81,45 @@ fn do_game() -> Result<(), String> {
     let mut frame : u32 = 0;
     let mut time = 0.0;
 
+    // Cube mesh
+
+    // vert buffer
+    let verts = vec!(
+        Vec4f::new(-1.0, -1.0, -1.0, 1.0),
+        Vec4f::new(-1.0,  1.0, -1.0, 1.0),
+        Vec4f::new( 1.0,  1.0, -1.0, 1.0),
+        Vec4f::new( 1.0, -1.0, -1.0, 1.0),
+        Vec4f::new(-1.0, -1.0,  1.0, 1.0),
+        Vec4f::new(-1.0,  1.0,  1.0, 1.0),
+        Vec4f::new( 1.0,  1.0,  1.0, 1.0),
+        Vec4f::new( 1.0, -1.0,  1.0, 1.0));
+
+    // index buffer
+    let tris = vec!(
+        // front
+        0, 1, 2, 
+        0, 2, 3,
+
+        // back
+        4, 5, 6, 
+        4, 6, 7,
+
+        // left
+        4, 5, 1, 
+        4, 1, 0,
+
+        // right
+        3, 2, 6, 
+        3, 6, 7,
+        
+        // top
+        1, 5, 6, 
+        1, 6, 2,
+
+        // bottom
+        0, 4, 7, 
+        0, 7, 3);
+
     'running: loop {
         // Game simulation logic
         for event in event_pump.poll_iter() {
@@ -108,44 +147,7 @@ fn do_game() -> Result<(), String> {
         let cam_mat = Mat4x4f::translation(0.0, 0.0, -8.0);
         let cam_mat_inverse = cam_mat.inverse();
 
-        // Let's draw a cube
-
-        // vert buffer
-        let verts = vec!(
-            Vec4f::new(-1.0, -1.0, -1.0, 1.0),
-            Vec4f::new(-1.0,  1.0, -1.0, 1.0),
-            Vec4f::new( 1.0,  1.0, -1.0, 1.0),
-            Vec4f::new( 1.0, -1.0, -1.0, 1.0),
-            Vec4f::new(-1.0, -1.0,  1.0, 1.0),
-            Vec4f::new(-1.0,  1.0,  1.0, 1.0),
-            Vec4f::new( 1.0,  1.0,  1.0, 1.0),
-            Vec4f::new( 1.0, -1.0,  1.0, 1.0));
-
-        // index buffer
-        let tris = vec!(
-            // front
-            0, 1, 2, 
-            0, 2, 3,
-
-            // back
-            4, 5, 6, 
-            4, 6, 7,
-
-            // left
-            4, 5, 1, 
-            4, 1, 0,
-
-            // right
-            3, 2, 6, 
-            3, 6, 7,
-            
-            // top
-            1, 5, 6, 
-            1, 6, 2,
-
-            // bottom
-            0, 4, 7, 
-            0, 7, 3);
+        // Let's draw our cube
 
         // rotate and translate it in world space
         let tri_mat = Mat4x4f::translation(0.0, f32::sin(time * 0.5), 0.0) * Mat4x4f::rotation_y(time * 1.3456);
@@ -185,7 +187,8 @@ fn do_game() -> Result<(), String> {
 }
 
 fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv: &Mat4x4f, screen: &mut draw::Screen) {
-    // Todo: split this into multiple stages, of course
+    // Todo: split this into multiple stages, of course, and
+    // loop over a list of points instead
 
     let p1 = *obj_mat * *p1;
     let p2 = *obj_mat * *p2;

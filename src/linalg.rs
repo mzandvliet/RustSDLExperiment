@@ -1,4 +1,9 @@
 /*
+A simple linear algebra library, far from finished.
+
+Uses left-handed coordinate system.
+
+
 Some math libs to take inspiration from:
 
 https://crates.io/crates/cgmath
