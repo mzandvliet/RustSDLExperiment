@@ -635,6 +635,24 @@ impl Mat4x4f {
         )
     }
 
+    pub fn rotation_x(radians: f32) -> Mat4x4f {
+        Mat4x4f::new(
+            1.0, 0.0, 0.0, 0.0,
+            0.0, f32::cos(radians), -f32::sin(radians), 0.0,
+            0.0, f32::sin(radians), f32::cos(radians), 0.0,
+            0.0, 0.0, 0.0, 1.0
+        )
+    }
+
+    pub fn rotation_y(radians: f32) -> Mat4x4f {
+        Mat4x4f::new(
+            f32::cos(radians), 0.0, -f32::sin(radians), 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            f32::sin(radians), 0.0, f32::cos(radians), 0.0,
+            0.0, 0.0, 0.0, 1.0
+        )
+    }
+
     pub fn rotation_z(radians: f32) -> Mat4x4f {
         Mat4x4f::new(
             f32::cos(radians), -f32::sin(radians), 0.0, 0.0,

@@ -101,14 +101,27 @@ fn do_game() -> Result<(), String> {
         canvas.set_draw_color(sdl2::pixels::Color::RGB(0, 0, 0));
         canvas.clear();
 
-        //let cam_mat = Mat4x4f::translation(0.0, 0.0, -1.0); // f32::sin(3.1423 * time) * 2.0
-        let cam_mat = Mat4x4f::translation(0.0, 0.0, -6.0 + f32::sin(3.1423 * time) * -3.0) * Mat4x4f::rotation_z(time * 0.5);
+        // Cam setup
+        let cam_mat = Mat4x4f::translation(0.0, 0.0, -4.0);
         let cam_mat_inverse = cam_mat.inverse();
 
-        let p1 = Vec4f::new(-1.0, -0.5, 2.0, 1.0);
-        let p2 = Vec4f::new(0.0, 1.0, 2.0, 1.0);
-        let p3 = Vec4f::new(1.0, -0.5, 2.0, 1.0);
+        // Triangle in world space
+        let p1 = Vec4f::new(-1.0, -0.5, 0.0, 1.0);
+        let p2 = Vec4f::new(0.0, 1.0, 0.0, 1.0);
+        let p3 = Vec4f::new(1.0, -0.5, 0.0, 1.0);
 
+        // rotating in world space
+        let tri_mat = Mat4x4f::translation(0.0, f32::sin(time * 0.5), 0.0) * Mat4x4f::rotation_y(time * 1.3456);
+        let p1 = tri_mat * p1;
+        let p2 = tri_mat * p2;
+        let p3 = tri_mat * p3;
+
+        // Projection as separate steps
+        let p1 = cam_mat_inverse * p1;
+        let p2 = cam_mat_inverse * p2;
+        let p3 = cam_mat_inverse * p3;
+
+        // Projection as separate steps
         let p1 = cam_mat_inverse * p1;
         let p2 = cam_mat_inverse * p2;
         let p3 = cam_mat_inverse * p3;
@@ -158,6 +171,10 @@ fn do_game() -> Result<(), String> {
     Ok(())
 }
 
+/*
+Todo: When a line is fully off screen, don't draw it
+If partially on screen, clip the line properly, without changing its geometry
+*/
 fn clip(p: (i32, i32), s: (i32, i32)) -> (i32, i32) {
     (i32::min(i32::max(0, p.0), s.0-1),
      i32::min(i32::max(0, p.1), s.1-1))
@@ -170,9 +187,9 @@ fn perspective(p: Vec4f) -> Vec4f {
 fn screenspace(p: Vec4f) -> Vec4f {
     let w = 1.33;
     let h = 1.0;
-    Vec4f::new(p.x + 0.5 * w, p.y + 0.5 * h, p.z, 1.0)
+    Vec4f::new((p.x + 0.5 * w) / w, p.y + 0.5 * h, p.z, 1.0)
 }
 
 fn pixelspace(p: Vec4f) -> Vec4f {
-    Vec4f::new(p.x * 400.0, p.y * 300.0, p.z, 1.0)
+    Vec4f::new(p.x * 400.0, 300.0 - p.y * 300.0, p.z, 1.0)
 }
