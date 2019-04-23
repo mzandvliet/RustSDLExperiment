@@ -89,11 +89,6 @@ fn do_game() -> Result<(), String> {
             }
         }
 
-        if frame >= 30 {
-            //game.update();
-            frame = 0;
-        }
-
         // Rendering
 
         // Clear
@@ -116,16 +111,13 @@ fn do_game() -> Result<(), String> {
         let p2 = tri_mat * p2;
         let p3 = tri_mat * p3;
 
-        // Projection as separate steps
+        // World to camera space
         let p1 = cam_mat_inverse * p1;
         let p2 = cam_mat_inverse * p2;
         let p3 = cam_mat_inverse * p3;
 
         // Projection as separate steps
-        let p1 = cam_mat_inverse * p1;
-        let p2 = cam_mat_inverse * p2;
-        let p3 = cam_mat_inverse * p3;
-
+        // todo: projection matrix
         let p1 = perspective(p1);
         let p2 = perspective(p2);
         let p3 = perspective(p3);
