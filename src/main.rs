@@ -97,48 +97,44 @@ fn do_game() -> Result<(), String> {
         canvas.clear();
 
         // Cam setup
-        let cam_mat = Mat4x4f::translation(0.0, 0.0, -4.0);
+        let cam_mat = Mat4x4f::translation(0.0, 0.0, -8.0);
         let cam_mat_inverse = cam_mat.inverse();
 
-        // Triangle in world space
-        let p1 = Vec4f::new(-1.0, -0.5, 0.0, 1.0);
-        let p2 = Vec4f::new(0.0, 1.0, 0.0, 1.0);
-        let p3 = Vec4f::new(1.0, -0.5, 0.0, 1.0);
+        // Let's draw a cube
+
+        // vert buffer
+        let verts = vec!(
+            Vec4f::new(-1.0, -1.0, -1.0, 1.0),
+            Vec4f::new(-1.0,  1.0, -1.0, 1.0),
+            Vec4f::new( 1.0,  1.0, -1.0, 1.0),
+            Vec4f::new( 1.0, -1.0, -1.0, 1.0),
+            Vec4f::new(-1.0, -1.0,  1.0, 1.0),
+            Vec4f::new(-1.0,  1.0,  1.0, 1.0),
+            Vec4f::new( 1.0,  1.0,  1.0, 1.0),
+            Vec4f::new( 1.0, -1.0,  1.0, 1.0));
+
+        // index buffer
+        let tris = vec!(
+            // front
+            0, 1, 2, 
+            0, 2, 3,
+            
+            // back
+            4, 5, 6, 
+            4, 6, 7,);
 
         // rotating in world space
         let tri_mat = Mat4x4f::translation(0.0, f32::sin(time * 0.5), 0.0) * Mat4x4f::rotation_y(time * 1.3456);
-        let p1 = tri_mat * p1;
-        let p2 = tri_mat * p2;
-        let p3 = tri_mat * p3;
-
-        // World to camera space
-        let p1 = cam_mat_inverse * p1;
-        let p2 = cam_mat_inverse * p2;
-        let p3 = cam_mat_inverse * p3;
-
-        // Projection as separate steps
-        // todo: projection matrix
-        let p1 = perspective(p1);
-        let p2 = perspective(p2);
-        let p3 = perspective(p3);
-
-        let p1 = screenspace(p1);
-        let p2 = screenspace(p2);
-        let p3 = screenspace(p3);
-
-        let p1 = pixelspace(p1);
-        let p2 = pixelspace(p2);
-        let p3 = pixelspace(p3);
-
-        let screen_dims = (screen.width as i32, screen.height as i32);
-
-        let p1s = clip((p1.x as i32, p1.y as i32), screen_dims);
-        let p2s = clip((p2.x as i32, p2.y as i32), screen_dims);
-        let p3s = clip((p3.x as i32, p3.y as i32), screen_dims);
-
-        // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
-
-        draw::triangle(&mut screen, p1s, p2s, p3s);
+        
+        for i in 0..4 {
+            draw_triangle(
+                &verts[tris[i*3 + 0]],
+                &verts[tris[i*3 + 1]],
+                &verts[tris[i*3 + 2]],
+                &tri_mat,
+                &cam_mat_inverse,
+                &mut screen);
+        }
 
         // Copy screenbuffer to texture
         texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
@@ -161,6 +157,43 @@ fn do_game() -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv: &Mat4x4f, screen: &mut draw::Screen) {
+    // Todo: split into multiple stages, of course
+
+    let p1 = *obj_mat * *p1;
+    let p2 = *obj_mat * *p2;
+    let p3 = *obj_mat * *p3;
+
+    // World to camera space
+    let p1 = *cam_inv * p1;
+    let p2 = *cam_inv * p2;
+    let p3 = *cam_inv * p3;
+
+    // Projection as separate steps
+    // todo: projection matrix
+    let p1 = perspective(p1);
+    let p2 = perspective(p2);
+    let p3 = perspective(p3);
+
+    let p1 = screenspace(p1);
+    let p2 = screenspace(p2);
+    let p3 = screenspace(p3);
+
+    let p1 = pixelspace(p1);
+    let p2 = pixelspace(p2);
+    let p3 = pixelspace(p3);
+
+    let screen_dims = (screen.width as i32, screen.height as i32);
+
+    let p1s = clip((p1.x as i32, p1.y as i32), screen_dims);
+    let p2s = clip((p2.x as i32, p2.y as i32), screen_dims);
+    let p3s = clip((p3.x as i32, p3.y as i32), screen_dims);
+
+    // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
+
+    draw::triangle(screen, p1s, p2s, p3s);
 }
 
 /*
