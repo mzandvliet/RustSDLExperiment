@@ -120,6 +120,13 @@ fn do_game() -> Result<(), String> {
         0, 4, 7, 
         0, 7, 3);
 
+    // Project matrix
+    let near: f32 = 0.1;
+    let far: f32 = 1000.0;
+    let fov: f32 = 80.0;
+    let aspect: f32 =  HEIGHT as f32 / WIDTH as f32;
+    let proj_mat = Mat4x4f::projection(near, far, aspect, fov);
+
     'running: loop {
         // Game simulation logic
         for event in event_pump.poll_iter() {
@@ -152,12 +159,13 @@ fn do_game() -> Result<(), String> {
         
         // draw all tris in sequence
         for i in 0..12 {
-            draw_triangle(
+            draw_triangle_mat(
                 &verts[tris[i*3 + 0]],
                 &verts[tris[i*3 + 1]],
                 &verts[tris[i*3 + 2]],
                 &tri_mat,
                 &cam_mat_inverse,
+                &proj_mat,
                 &mut screen);
         }
 
@@ -206,6 +214,38 @@ fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv:
     let p1 = to_screenspace(p1);
     let p2 = to_screenspace(p2);
     let p3 = to_screenspace(p3);
+
+    let p1 = to_pixelspace(p1);
+    let p2 = to_pixelspace(p2);
+    let p3 = to_pixelspace(p3);
+
+    let screen_dims = (screen.width as i32, screen.height as i32);
+
+    let p1s = clip_point((p1.x as i32, p1.y as i32), screen_dims);
+    let p2s = clip_point((p2.x as i32, p2.y as i32), screen_dims);
+    let p3s = clip_point((p3.x as i32, p3.y as i32), screen_dims);
+
+    // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
+
+    draw::triangle(screen, p1s, p2s, p3s);
+}
+
+fn draw_triangle_mat(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f, screen: &mut draw::Screen) {
+    // Todo: split this into multiple stages, of course, and
+    // loop over a list of points instead
+
+    let p1 = *obj_mat * *p1;
+    let p2 = *obj_mat * *p2;
+    let p3 = *obj_mat * *p3;
+
+    // World to camera space
+    let p1 = *cam_inv * p1;
+    let p2 = *cam_inv * p2;
+    let p3 = *cam_inv * p3;
+
+    let p1 = cam_proj.mul_norm(&p1);
+    let p2 = cam_proj.mul_norm(&p2);
+    let p3 = cam_proj.mul_norm(&p3);
 
     let p1 = to_pixelspace(p1);
     let p2 = to_pixelspace(p2);
@@ -288,7 +328,14 @@ fn to_screenspace(point: Vec4f) -> Vec4f {
     Vec4f::new((point.x + 0.5 * w) / w, point.y + 0.5 * h, point.z, 1.0)
 }
 
+// this one assumes input is in [0,1] domain
+// fn to_pixelspace(point: Vec4f) -> Vec4f {
+//     // Note, we're inverting y here
+//     Vec4f::new(point.x * 400.0, 300.0 - point.y * 300.0, point.z, 1.0)
+// }
+
+// this one assumes input is in [-1,1] domain
 fn to_pixelspace(point: Vec4f) -> Vec4f {
     // Note, we're inverting y here
-    Vec4f::new(point.x * 400.0, 300.0 - point.y * 300.0, point.z, 1.0)
+    Vec4f::new(200.0 + point.x * 400.0, -150.0 + 300.0 - point.y * 300.0, point.z, 1.0)
 }

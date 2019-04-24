@@ -298,6 +298,15 @@ impl Vec4f {
     pub fn dot(a : Self, b : Self) -> f32 {
         a.x * b.y + a.y * b.y + a.z * b.z + a.w * b.w
     }
+
+    pub fn normalize_by_w(self: &Self) -> Self {
+        Vec4f::new(
+            self.x / self.w,
+            self.y / self.w,
+            self.z / self.w,
+            1.0,
+        )
+    }
 }
 
 impl Add for Vec4f {
@@ -670,6 +679,23 @@ impl Mat4x4f {
             0.0, 0.0, z, 0.0,
             0.0, 0.0, 0.0, 1.0
         )
+    }
+
+    pub fn projection(near: f32, far: f32, aspect: f32, fov: f32) -> Mat4x4f {
+        let fov_rad: f32 = 1.0 / f32::tan(fov * 0.5 / 180.0 * std::f32::consts::PI);
+
+        let mut proj_mat = Mat4x4f::zero();
+        proj_mat[0][0] = aspect * fov_rad;
+        proj_mat[1][1] = fov_rad;
+        proj_mat[2][3] = far / (far - near);
+        proj_mat[3][2] = 1.0;
+
+        proj_mat
+    }
+
+    pub fn mul_norm(&self, v: &Vec4f) -> Vec4f {
+        let vmul = *self * *v;
+        Vec4f::normalize_by_w(&vmul)
     }
 }
 
