@@ -15,17 +15,11 @@ mod linalg;
 use linalg::*;
 
 /*
-    Prototype:
-    Define a cube using 3d points X
-    Transform it using matrices X
-    Bring into camera space using inverse cam matrix X
-    Draw using bresenham X
-    Project to 2d screen using a proper projection matrix (with configurable FOV)
-
     Use From/Into trait impls to get around all the explicit casting
     Pass by immutable reference more, instead of by copy. This is not C#, mister.
 
     Then:
+    Implement back-face culling (normals, or winding order)
     Implement line clipping
     Implement frustum culling
     Implement triangle clipping
@@ -159,7 +153,7 @@ fn do_game() -> Result<(), String> {
         
         // draw all tris in sequence
         for i in 0..12 {
-            draw_triangle_mat(
+            draw_triangle(
                 &verts[tris[i*3 + 0]],
                 &verts[tris[i*3 + 1]],
                 &verts[tris[i*3 + 2]],
@@ -192,7 +186,7 @@ fn do_game() -> Result<(), String> {
     Ok(())
 }
 
-fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv: &Mat4x4f, screen: &mut draw::Screen) {
+fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f, screen: &mut draw::Screen) {
     // Todo: split this into multiple stages, of course, and
     // loop over a list of points instead
 
@@ -205,44 +199,7 @@ fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv:
     let p2 = *cam_inv * p2;
     let p3 = *cam_inv * p3;
 
-    // Projection as separate steps
-    // todo: encode these steps in an actual 4x4 projection matrix
-    let p1 = perspective_divide(p1);
-    let p2 = perspective_divide(p2);
-    let p3 = perspective_divide(p3);
-
-    let p1 = to_screenspace(p1);
-    let p2 = to_screenspace(p2);
-    let p3 = to_screenspace(p3);
-
-    let p1 = to_pixelspace(p1);
-    let p2 = to_pixelspace(p2);
-    let p3 = to_pixelspace(p3);
-
-    let screen_dims = (screen.width as i32, screen.height as i32);
-
-    let p1s = clip_point((p1.x as i32, p1.y as i32), screen_dims);
-    let p2s = clip_point((p2.x as i32, p2.y as i32), screen_dims);
-    let p3s = clip_point((p3.x as i32, p3.y as i32), screen_dims);
-
-    // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
-
-    draw::triangle(screen, p1s, p2s, p3s);
-}
-
-fn draw_triangle_mat(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f, screen: &mut draw::Screen) {
-    // Todo: split this into multiple stages, of course, and
-    // loop over a list of points instead
-
-    let p1 = *obj_mat * *p1;
-    let p2 = *obj_mat * *p2;
-    let p3 = *obj_mat * *p3;
-
-    // World to camera space
-    let p1 = *cam_inv * p1;
-    let p2 = *cam_inv * p2;
-    let p3 = *cam_inv * p3;
-
+    // Projection
     let p1 = cam_proj.mul_norm(&p1);
     let p2 = cam_proj.mul_norm(&p2);
     let p3 = cam_proj.mul_norm(&p3);
@@ -327,12 +284,6 @@ fn to_screenspace(point: Vec4f) -> Vec4f {
     let h = 1.0;
     Vec4f::new((point.x + 0.5 * w) / w, point.y + 0.5 * h, point.z, 1.0)
 }
-
-// this one assumes input is in [0,1] domain
-// fn to_pixelspace(point: Vec4f) -> Vec4f {
-//     // Note, we're inverting y here
-//     Vec4f::new(point.x * 400.0, 300.0 - point.y * 300.0, point.z, 1.0)
-// }
 
 // this one assumes input is in [-1,1] domain
 fn to_pixelspace(point: Vec4f) -> Vec4f {
