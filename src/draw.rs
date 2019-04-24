@@ -4,6 +4,8 @@
     - Create types for easier manipulation of screen points
 */
 
+use crate::linalg::*;
+
 pub struct Screen {
     pub buffer: Box<[u8]>,
     pub width: usize,
@@ -82,10 +84,56 @@ pub fn line(screen: &mut Screen, a: (i32, i32), b: (i32, i32)) {
     }
 }
 
-pub fn triangle(screen: &mut Screen, a: (i32, i32), b: (i32, i32), c: (i32, i32)) {
+pub fn triangle_wireframe(screen: &mut Screen, a: (i32, i32), b: (i32, i32), c: (i32, i32)) {
     line(screen, a, b);
     line(screen, b, c);
     line(screen, c, a);
+}
+
+pub fn triangle_solid(screen: &mut Screen, a: (i32, i32), b: (i32, i32), c: (i32, i32)) {
+    // Todo:
+    // - get triangle aabb to limit range of pixels considered
+
+    for x in 0..screen.width {
+        for y in 0..screen.height {
+            if pixel_in_triangle(a, b, c, (x as i32,y as i32)) {
+                set_pixel(screen, x, y, Color::new(255, 255, 255));
+            }
+        }
+    }
+}
+
+// Todo: can probably do this entirely in integer coords?
+fn get_aabb(points: Vec<Vec4f>, s: (i32, i32)) -> ((i32,i32), (i32,i32)){
+    let mut x_min: i32 = s.0;
+    let mut y_min: i32 = s.1;
+    let mut x_max: i32 = 0;
+    let mut y_max: i32 = 0;
+
+    for p in points.iter() {
+        if (p.x as i32) < x_min {x_min = p.x as i32;}
+        if (p.y as i32) < y_min {y_min = p.y as i32;}
+        if (p.x as i32) > x_max {x_max = p.x as i32;}
+        if (p.y as i32) > y_max {y_max = p.y as i32;}
+    }
+
+    ((x_min, y_min), (x_max, y_max))
+}
+
+fn test_edge(a: (i32, i32), b: (i32, i32), p: (i32, i32)) -> i32 {
+    (p.0 - a.0) * (b.1 - a.1) - (p.1 - a.1) * (b.0 - a.0)
+}
+
+fn pixel_in_triangle(a: (i32, i32), b: (i32, i32), c: (i32, i32), p: (i32, i32)) -> bool {
+    let mut inside: bool = true;
+
+    inside &= test_edge(a, b, p) < 0;
+    inside &= test_edge(b, c, p) < 0;
+    inside &= test_edge(c, a, p) < 0;
+
+    // Todo: want to preserve edge test float values for use in barycentric-coordinate computations
+
+    inside
 }
 
 // Bresenham-style circle drawing algorithm, as per this wonderful paper:

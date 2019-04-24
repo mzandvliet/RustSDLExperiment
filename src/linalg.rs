@@ -844,7 +844,7 @@ mod tests {
     #[test]
     fn test_inverse() {
         let m_scale = Mat4x4f::scale(2.0, 3.0, 4.0);
-        let m_rot = Mat4x4f::rotation_z(3.1423);
+        let m_rot = Mat4x4f::rotation_z(std::f32::consts::PI);
         let m_trs = Mat4x4f::translation(0.0, 0.0, 1.0);
         let m = m_rot * m_scale * m_trs;
         println!("m : {:?}", m);

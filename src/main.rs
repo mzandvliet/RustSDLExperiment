@@ -95,8 +95,8 @@ fn do_game() -> Result<(), String> {
         0, 2, 3,
 
         // back
-        4, 5, 6, 
-        4, 6, 7,
+        6, 5, 4, 
+        7, 6, 4,
 
         // left
         4, 5, 1, 
@@ -111,8 +111,8 @@ fn do_game() -> Result<(), String> {
         1, 6, 2,
 
         // bottom
-        0, 4, 7, 
-        0, 7, 3);
+        7, 4, 0, 
+        3, 7, 0);
 
     // Project matrix
     let near: f32 = 0.1;
@@ -149,11 +149,11 @@ fn do_game() -> Result<(), String> {
         // Let's draw our cube
 
         // rotate and translate it in world space
-        let tri_mat = Mat4x4f::translation(0.0, f32::sin(time * 0.5), 0.0) * Mat4x4f::rotation_y(time * 1.3456);
+        let tri_mat = Mat4x4f::translation(0.0, f32::sin(time * 0.5) * 2.0, 0.0) * Mat4x4f::rotation_y(time * 1.3456);
         
         // draw all tris in sequence
         let num_tris = tris.len() / 3;
-        for i in 0..num_tris {
+        for i in 0..num_tris { // 0..num_tris
             draw_triangle(
                 &verts[tris[i*3 + 0]],
                 &verts[tris[i*3 + 1]],
@@ -188,8 +188,10 @@ fn do_game() -> Result<(), String> {
 }
 
 fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f, screen: &mut draw::Screen) {
-    // Todo: split this into multiple stages, of course, and
-    // loop over a list of points instead
+    // Todo: 
+    // - split this into multiple stages, of course, and
+    // - loop over a list of points instead
+    // - do backface culling before rendering solids
 
     let p1 = *obj_mat * *p1;
     let p2 = *obj_mat * *p2;
@@ -217,11 +219,12 @@ fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv:
 
     // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
 
-    draw::triangle(screen, p1s, p2s, p3s);
+    // draw::triangle_wireframe(screen, p1s, p2s, p3s);
+    draw::triangle_solid(screen, p1s, p2s, p3s);
 }
 
-fn is_line_visible(a: (i32, i32), b: (i32, i32), s: (i32, i32)) -> bool {
-    is_point_visible(a, s) || is_point_visible(b, s)
+fn is_line_visible(a: (i32, i32), b: (i32, i32), screen_dims: (i32, i32)) -> bool {
+    is_point_visible(a, screen_dims) || is_point_visible(b, screen_dims)
 }
 
 fn is_point_visible(p: (i32, i32), screen_dims: (i32, i32)) -> bool {
