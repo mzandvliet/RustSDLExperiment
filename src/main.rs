@@ -219,8 +219,8 @@ fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv:
 
     // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
 
-    // draw::triangle_wireframe(screen, p1s, p2s, p3s);
-    draw::triangle_solid(screen, p1s, p2s, p3s);
+    draw::triangle_solid(screen, p1s, p2s, p3s, &draw::Color::new(255, 100, 150));
+    draw::triangle_wireframe(screen, p1s, p2s, p3s, &draw::Color::new(255, 255, 255));
 }
 
 fn is_line_visible(a: (i32, i32), b: (i32, i32), screen_dims: (i32, i32)) -> bool {

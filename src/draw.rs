@@ -32,7 +32,7 @@ impl Color {
 // Set an individual pixel's RGB color
 // Todo: investigate access patterns, cache coherence. Using a space-
 // filling curve memory layout might improve drawing to smaller areas.
-pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: Color) {
+pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: &Color) {
     // println!("settting pixel: [{},{}]", x, y);
 
     // Todo: you don't want to be doing asserts this nested within core loops
@@ -53,7 +53,7 @@ pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: Color) {
 // http://members.chello.at/~easyfilter/Bresenham.pdf
 // Todo: assume points are valid screen coords, and don't do any
 // bounds checks. Perform rigorous clipping earlier in code path.
-pub fn line(screen: &mut Screen, a: (i32, i32), b: (i32, i32)) {
+pub fn line(screen: &mut Screen, a: (i32, i32), b: (i32, i32), color: &Color) {
     let mut x0: i32 = a.0;
     let mut y0: i32 = a.1;
 
@@ -68,10 +68,8 @@ pub fn line(screen: &mut Screen, a: (i32, i32), b: (i32, i32)) {
     let mut err = dx+dy;
     let mut e2: i32;
 
-    let c = Color::new(255,255,255);
-
     loop {
-        set_pixel(screen, x0 as usize, y0 as usize, c);
+        set_pixel(screen, x0 as usize, y0 as usize, color);
         e2 = 2 * err;
         if e2 >= dy {
             if x0 == x1 { break }
@@ -84,20 +82,20 @@ pub fn line(screen: &mut Screen, a: (i32, i32), b: (i32, i32)) {
     }
 }
 
-pub fn triangle_wireframe(screen: &mut Screen, a: (i32, i32), b: (i32, i32), c: (i32, i32)) {
-    line(screen, a, b);
-    line(screen, b, c);
-    line(screen, c, a);
+pub fn triangle_wireframe(screen: &mut Screen, a: (i32, i32), b: (i32, i32), c: (i32, i32), color: &Color) {
+    line(screen, a, b, color);
+    line(screen, b, c, color);
+    line(screen, c, a, color);
 }
 
-pub fn triangle_solid(screen: &mut Screen, a: (i32, i32), b: (i32, i32), c: (i32, i32)) {
+pub fn triangle_solid(screen: &mut Screen, a: (i32, i32), b: (i32, i32), c: (i32, i32), color: &Color) {
     // Todo:
     // - get triangle aabb to limit range of pixels considered
 
     for x in 0..screen.width {
         for y in 0..screen.height {
             if pixel_in_triangle(a, b, c, (x as i32,y as i32)) {
-                set_pixel(screen, x, y, Color::new(255, 255, 255));
+                set_pixel(screen, x, y, color);
             }
         }
     }
@@ -138,18 +136,16 @@ fn pixel_in_triangle(a: (i32, i32), b: (i32, i32), c: (i32, i32), p: (i32, i32))
 
 // Bresenham-style circle drawing algorithm, as per this wonderful paper:
 // http://members.chello.at/~easyfilter/Bresenham.pdf
-pub fn circle(screen: &mut Screen, a: (i32, i32), radius: i32) {
+pub fn circle(screen: &mut Screen, a: (i32, i32), radius: i32, color: &Color) {
     let mut x: i32  = -radius;
     let mut y: i32 = 0;
     let mut err = 2 - 2 * radius;
 
-    let c = Color::new(255,255,255);
-
     loop {
-        set_pixel(screen, (a.0-x) as usize, (a.1+y) as usize, c);
-        set_pixel(screen, (a.0-y) as usize, (a.1-x) as usize, c);
-        set_pixel(screen, (a.0+x) as usize, (a.1-y) as usize, c);
-        set_pixel(screen, (a.0+y) as usize, (a.1+x) as usize, c);
+        set_pixel(screen, (a.0-x) as usize, (a.1+y) as usize, color);
+        set_pixel(screen, (a.0-y) as usize, (a.1-x) as usize, color);
+        set_pixel(screen, (a.0+x) as usize, (a.1-y) as usize, color);
+        set_pixel(screen, (a.0+y) as usize, (a.1+x) as usize, color);
         let r = err;
         if r <= y { y+=1; err += y*2+1; }
         if r > 0 || err > y { x+=1; err += x*2+1; }
@@ -230,19 +226,19 @@ fn draw_aa_dcb(screen: &mut Screen, mut a: (i64, i64), mut b: (i64,i64), mut c: 
             let ed = (dx+xy as f64).max(-xy as f64 - dy);                /* approximate error distance */
             let ed = ed+2.0*ed*cur*cur/(4.0*ed*ed+cur*cur); // was u8 / f64, did that lose fraction?
             let pixel = 255;//(ed*((err as f64 - dx - dy - xy as f64).abs())) as u8;
-            set_pixel(screen, a.0 as usize, a.1 as usize, Color::new(pixel, pixel, pixel));          /* plot curve */
+            set_pixel(screen, a.0 as usize, a.1 as usize, &Color::new(pixel, pixel, pixel));          /* plot curve */
             if a.0 == c.0 && a.1 == c.1 {break};/* last pixel -> curve finished */
             b.0 = a.0; cur = dx-err as f64; b.1 = if ((2*err) as f64+ dy) < 0.0 {1} else {0};
             if (2*err) as f64 +dx > 0.0 {                                    /* x step */
                 let pixel = 255;//(ed*(err as f64-dy).abs()) as u8;
-                if err as f64-dy < ed { set_pixel(screen, a.0 as usize,(a.1+sy) as usize, Color::new(pixel,pixel,pixel)) };
+                if err as f64-dy < ed { set_pixel(screen, a.0 as usize,(a.1+sy) as usize, &Color::new(pixel,pixel,pixel)) };
                 dy += yy as f64;
                 a.0 += sx; dx -= xy as f64; err += dy as i64;
             }
             if b.1 != 0 {                                              /* y step */
                 if cur < ed {
                     let pixel = 255;//(ed*cur.abs()) as u8;
-                    set_pixel(screen, (b.0+sx) as usize, a.1 as usize, Color::new(pixel,pixel,pixel));
+                    set_pixel(screen, (b.0+sx) as usize, a.1 as usize, &Color::new(pixel,pixel,pixel));
                 };
                 dx += xx as f64;
                 a.1 += sy; dy -= xy as f64; err += dx as i64; 
@@ -253,6 +249,6 @@ fn draw_aa_dcb(screen: &mut Screen, mut a: (i64, i64), mut b: (i64,i64), mut c: 
             }
         }          /* gradient negates -> close curves */
     }
-    line(screen, (a.0 as i32, a.1 as i32), (c.0 as i32, c.1 as i32));              /* plot remaining needle to end */
+    line(screen, (a.0 as i32, a.1 as i32), (c.0 as i32, c.1 as i32), &Color::new(255,255,255));              /* plot remaining needle to end */
 }
 
