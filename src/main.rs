@@ -152,7 +152,8 @@ fn do_game() -> Result<(), String> {
         let tri_mat = Mat4x4f::translation(0.0, f32::sin(time * 0.5), 0.0) * Mat4x4f::rotation_y(time * 1.3456);
         
         // draw all tris in sequence
-        for i in 0..12 {
+        let num_tris = tris.len() / 3;
+        for i in 0..num_tris {
             draw_triangle(
                 &verts[tris[i*3 + 0]],
                 &verts[tris[i*3 + 1]],
