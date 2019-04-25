@@ -133,6 +133,12 @@ impl Index<usize> for Vec2f {
     }
 }
 
+impl From<&Vec4f> for Vec2f {
+    fn from(item: &Vec4f) -> Self {
+        Vec2f::new(item.x, item.y)
+    }
+}
+
 /*--------------------
     Vec3f
 --------------------*/ 

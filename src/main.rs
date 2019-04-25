@@ -217,24 +217,17 @@ fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv:
         let p2 = cam_proj.mul_norm(&p2);
         let p3 = cam_proj.mul_norm(&p3);
 
-        let p1 = to_pixelspace(p1);
-        let p2 = to_pixelspace(p2);
-        let p3 = to_pixelspace(p3);
-
-        let screen_dims = (screen.width as i32, screen.height as i32);
-
-        let p1s = clip_point((p1.x as i32, p1.y as i32), screen_dims);
-        let p2s = clip_point((p2.x as i32, p2.y as i32), screen_dims);
-        let p3s = clip_point((p3.x as i32, p3.y as i32), screen_dims);
+        let p1 = Vec2f::from(&p1);
+        let p2 = Vec2f::from(&p2);
+        let p3 = Vec2f::from(&p3);
 
         // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
 
         let shaded_color = draw::Color::new((255.0 * l_dot_n) as u8, (100.0 * l_dot_n) as u8, (150.0 * l_dot_n) as u8);
-        draw::triangle_solid(screen, p1s, p2s, p3s, &shaded_color);
-        draw::triangle_wireframe(screen, p1s, p2s, p3s, &draw::Color::new(255, 255, 255));
+        let wire_color = draw::Color::new(255, 255, 255);
+        draw::triangle_solid(screen, p1, p2, p3, &shaded_color);
+        draw::triangle_wireframe(screen, p1, p2, p3, &wire_color);
     }
-
-    
 }
 
 fn is_line_visible(a: (i32, i32), b: (i32, i32), screen_dims: (i32, i32)) -> bool {
@@ -281,17 +274,6 @@ fn intersect(a: i32, b: i32, c: i32, d: i32) -> i32 {
     (d - b) / (a - c) // Todo: precision, man. Rounding.
 }
 
-/*
-Todo: When a line is fully off screen, don't draw it
-If partially on screen, clip the line properly, without changing its geometry
-
-For now, I'm just nudging the points into valid screen bounds
-*/
-fn clip_point(point: (i32, i32), screen_dims: (i32, i32)) -> (i32, i32) {
-    (i32::min(i32::max(0, point.0), screen_dims.0-1),
-     i32::min(i32::max(0, point.1), screen_dims.1-1))
-}
-
 fn perspective_divide(point: Vec4f) -> Vec4f {
     Vec4f::new(point.x / point.z, point.y / point.z, point.z, 1.0)
 }
@@ -303,8 +285,3 @@ fn to_screenspace(point: Vec4f) -> Vec4f {
     Vec4f::new((point.x + 0.5 * w) / w, point.y + 0.5 * h, point.z, 1.0)
 }
 
-// this one assumes input is in [-1,1] domain
-fn to_pixelspace(point: Vec4f) -> Vec4f {
-    // Note, we're inverting y here
-    Vec4f::new(200.0 + point.x * 400.0, -150.0 + 300.0 - point.y * 300.0, point.z, 1.0)
-}

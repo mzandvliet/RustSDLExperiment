@@ -82,13 +82,50 @@ pub fn line(screen: &mut Screen, a: (i32, i32), b: (i32, i32), color: &Color) {
     }
 }
 
-pub fn triangle_wireframe(screen: &mut Screen, a: (i32, i32), b: (i32, i32), c: (i32, i32), color: &Color) {
+// this one assumes input is in [-1,1] domain
+fn to_pixelspace(point: &Vec2f, screen_dims: &(i32, i32)) -> (i32,i32) {
+    // Note, we're inverting y here
+    (screen_dims.0 / 2 + (point.x * 400.0) as i32, screen_dims.1 / 2 - (point.y * 300.0) as i32)
+}
+
+/*
+Todo: When a line is fully off screen, don't draw it
+If partially on screen, clip the line properly, without changing its geometry
+
+For now, I'm just nudging the points into valid screen bounds
+*/
+fn clip_point(point: (i32, i32), screen_dims: (i32, i32)) -> (i32, i32) {
+    (i32::min(i32::max(0, point.0), screen_dims.0-1),
+     i32::min(i32::max(0, point.1), screen_dims.1-1))
+}
+
+pub fn triangle_wireframe(screen: &mut Screen, a: Vec2f, b: Vec2f, c: Vec2f, color: &Color) {
+    let screen_dims = (screen.width as i32, screen.height as i32);
+    let a = to_pixelspace(&a, &screen_dims);
+    let b = to_pixelspace(&b, &screen_dims);
+    let c = to_pixelspace(&c, &screen_dims);
+
+    let a = clip_point((a.0, a.1), screen_dims);
+    let b = clip_point((b.0, b.1), screen_dims);
+    let c = clip_point((c.0, c.1), screen_dims);
+
     line(screen, a, b, color);
     line(screen, b, c, color);
     line(screen, c, a, color);
 }
 
-pub fn triangle_solid(screen: &mut Screen, a: (i32, i32), b: (i32, i32), c: (i32, i32), color: &Color) {
+pub fn triangle_solid(screen: &mut Screen, a: Vec2f, b: Vec2f, c: Vec2f, color: &Color) {
+    let screen_dims = (screen.width as i32, screen.height as i32);
+    let a = to_pixelspace(&a, &screen_dims);
+    let b = to_pixelspace(&b, &screen_dims);
+    let c = to_pixelspace(&c, &screen_dims);
+
+    let a = clip_point((a.0, a.1), screen_dims);
+    let b = clip_point((b.0, b.1), screen_dims);
+    let c = clip_point((c.0, c.1), screen_dims);
+
+    // Todo: aabb and edge test calculations with vec2
+
     let aabb = get_aabb(vec!(a,b,c), (screen.width as i32, screen.height as i32));
 
     for x in (aabb.0).0..(aabb.1).0 {
