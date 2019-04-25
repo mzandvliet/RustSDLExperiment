@@ -150,6 +150,7 @@ fn do_game() -> Result<(), String> {
 
         // rotate and translate it in world space
         let tri_mat = Mat4x4f::translation(0.0, f32::sin(time * 1.0) * 2.0, 0.0) * Mat4x4f::rotation_y(time * 2.0);
+        //let tri_mat = Mat4x4f::identity();
         
         // draw all tris in sequence
         let num_tris = tris.len() / 3;
@@ -202,10 +203,11 @@ fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv:
     let normal = normal.normalize();
 
     let cam_to_tri: Vec3f = Vec3f::from(&p1) - Vec3f::new(0.0, 0.0, -8.0);
-    if Vec3f::dot(&cam_to_tri, &normal) < 0.0 {
+    if Vec3f::dot(&cam_to_tri, &normal) < 0.0 { // backface culling
         // Lighting
         let light_dir = Vec3f::new(0.0, -0.5, 1.0).normalize();
         let l_dot_n = f32::max(0.0, -Vec3f::dot(&normal, &light_dir));
+        // let l_dot_n = 1.0;
 
         // World to camera space
         let p1 = *cam_inv * p1;
@@ -226,7 +228,7 @@ fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv:
         let shaded_color = draw::Color::new((255.0 * l_dot_n) as u8, (100.0 * l_dot_n) as u8, (150.0 * l_dot_n) as u8);
         let wire_color = draw::Color::new(255, 255, 255);
         draw::triangle_solid(screen, p1, p2, p3, &shaded_color);
-        draw::triangle_wireframe(screen, p1, p2, p3, &wire_color);
+        // draw::triangle_wired(screen, p1, p2, p3, &wire_color);
     }
 }
 
@@ -272,16 +274,5 @@ fn slope_intercept(a: ((i32,i32),(i32,i32))) -> (i32, i32) {
 
 fn intersect(a: i32, b: i32, c: i32, d: i32) -> i32 {
     (d - b) / (a - c) // Todo: precision, man. Rounding.
-}
-
-fn perspective_divide(point: Vec4f) -> Vec4f {
-    Vec4f::new(point.x / point.z, point.y / point.z, point.z, 1.0)
-}
-
-// Todo: don't hardcode the resolution
-fn to_screenspace(point: Vec4f) -> Vec4f {
-    let w = 1.33;
-    let h = 1.0;
-    Vec4f::new((point.x + 0.5 * w) / w, point.y + 0.5 * h, point.z, 1.0)
 }
 

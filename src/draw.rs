@@ -82,10 +82,16 @@ pub fn line(screen: &mut Screen, a: (i32, i32), b: (i32, i32), color: &Color) {
     }
 }
 
-// this one assumes input is in [-1,1] domain
 fn to_pixelspace(point: &Vec2f, screen_dims: &(i32, i32)) -> (i32,i32) {
-    // Note, we're inverting y here
-    (screen_dims.0 / 2 + (point.x * 400.0) as i32, screen_dims.1 / 2 - (point.y * 300.0) as i32)
+    (screen_dims.0 / 2 + (point.x * screen_dims.0 as f32) as i32,
+     screen_dims.1 / 2 - (point.y * screen_dims.1 as f32) as i32) // Note, we're inverting y here
+}
+
+fn to_camspace(screen_point: &(i32,i32), screen_dims: &(i32,i32)) -> Vec2f {
+    Vec2f {
+        x: (screen_point.0 - screen_dims.0 / 2) as f32 / screen_dims.0 as f32,
+        y: (screen_dims.1 - screen_point.1 - screen_dims.1 / 2) as f32 / screen_dims.1 as f32, // Note, we're inverting y here
+    }
 }
 
 /*
@@ -99,7 +105,7 @@ fn clip_point(point: (i32, i32), screen_dims: (i32, i32)) -> (i32, i32) {
      i32::min(i32::max(0, point.1), screen_dims.1-1))
 }
 
-pub fn triangle_wireframe(screen: &mut Screen, a: Vec2f, b: Vec2f, c: Vec2f, color: &Color) {
+pub fn triangle_wired(screen: &mut Screen, a: Vec2f, b: Vec2f, c: Vec2f, color: &Color) {
     let screen_dims = (screen.width as i32, screen.height as i32);
     let a = to_pixelspace(&a, &screen_dims);
     let b = to_pixelspace(&b, &screen_dims);
@@ -116,54 +122,64 @@ pub fn triangle_wireframe(screen: &mut Screen, a: Vec2f, b: Vec2f, c: Vec2f, col
 
 pub fn triangle_solid(screen: &mut Screen, a: Vec2f, b: Vec2f, c: Vec2f, color: &Color) {
     let screen_dims = (screen.width as i32, screen.height as i32);
-    let a = to_pixelspace(&a, &screen_dims);
-    let b = to_pixelspace(&b, &screen_dims);
-    let c = to_pixelspace(&c, &screen_dims);
 
-    let a = clip_point((a.0, a.1), screen_dims);
-    let b = clip_point((b.0, b.1), screen_dims);
-    let c = clip_point((c.0, c.1), screen_dims);
+    // let a_s = to_pixelspace(&a, &screen_dims);
+    // let b_s = to_pixelspace(&b, &screen_dims);
+    // let c_s = to_pixelspace(&c, &screen_dims);
+
+    // let a_s = clip_point((a_s.0, a_s.1), screen_dims);
+    // let b_s = clip_point((b_s.0, b_s.1), screen_dims);
+    // let c_s = clip_point((c_s.0, c_s.1), screen_dims);
 
     // Todo: aabb and edge test calculations with vec2
 
-    let aabb = get_aabb(vec!(a,b,c), (screen.width as i32, screen.height as i32));
+    //let aabb = get_aabb(vec!(a_s,b_s,c_s), (screen.width as i32, screen.height as i32));
 
-    for x in (aabb.0).0..(aabb.1).0 {
-        for y in (aabb.0).1..(aabb.1).1 {
-            if pixel_in_triangle(a, b, c, (x as i32,y as i32)) {
-                set_pixel(screen, x as usize, y as usize, color);
+    // for x in (aabb.0).0..(aabb.1).0 {
+    //     for y in (aabb.0).1..(aabb.1).1 {
+    //         if pixel_in_triangle(a, b, c, (x as i32,y as i32)) {
+    //             set_pixel(screen, x as usize, y as usize, color);
+    //         }
+    //     }
+    // }
+
+    for x in 0..screen.width {
+        for y in 0..screen.height {
+            let pix_camspace = to_camspace(&(x as i32, y as i32), &screen_dims);
+            //println!("{},{} -> {:?}", x, y, pix_camspace);
+            if pixel_in_triangle(&a, &b, &c, &pix_camspace) {
+                set_pixel(screen, x, y, color);
             }
         }
     }
 }
 
-fn get_aabb(points: Vec<(i32,i32)>, screen_dims: (i32, i32)) -> ((i32,i32), (i32,i32)){
-    let mut x_min: i32 = screen_dims.0;
-    let mut y_min: i32 = screen_dims.1;
-    let mut x_max: i32 = 0;
-    let mut y_max: i32 = 0;
+// fn get_aabb(points: Vec<(i32,i32)>, screen_dims: (i32, i32)) -> ((i32,i32), (i32,i32)){
+//     let mut x_min: i32 = screen_dims.0;
+//     let mut y_min: i32 = screen_dims.1;
+//     let mut x_max: i32 = 0;
+//     let mut y_max: i32 = 0;
 
-    for p in points.iter() {
-        if (p.0) < x_min {x_min = p.0;}
-        if (p.1) < y_min {y_min = p.1;}
-        if (p.0) > x_max {x_max = p.0;}
-        if (p.1) > y_max {y_max = p.1;}
-    }
+//     for p in points.iter() {
+//         if (p.0) < x_min {x_min = p.0;}
+//         if (p.1) < y_min {y_min = p.1;}
+//         if (p.0) > x_max {x_max = p.0;}
+//         if (p.1) > y_max {y_max = p.1;}
+//     }
 
-    ((x_min, y_min), (x_max, y_max))
+//     ((x_min, y_min), (x_max, y_max))
+// }
+
+fn test_edge(a: &Vec2f, b: &Vec2f, p: &Vec2f) -> f32 {
+    (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)
 }
 
-// Todo: probably want to do this with support for fractional values
-fn test_edge(a: (i32, i32), b: (i32, i32), p: (i32, i32)) -> i32 {
-    (p.0 - a.0) * (b.1 - a.1) - (p.1 - a.1) * (b.0 - a.0)
-}
-
-fn pixel_in_triangle(a: (i32, i32), b: (i32, i32), c: (i32, i32), p: (i32, i32)) -> bool {
+fn pixel_in_triangle(a: &Vec2f, b: &Vec2f, c: &Vec2f, p: &Vec2f) -> bool {
     let mut inside: bool = true;
 
-    inside &= test_edge(a, b, p) < 0;
-    inside &= test_edge(b, c, p) < 0;
-    inside &= test_edge(c, a, p) < 0;
+    inside &= test_edge(a, b, p) > 0.0;
+    inside &= test_edge(b, c, p) > 0.0;
+    inside &= test_edge(c, a, p) > 0.0;
 
     // Todo: want to preserve edge test float values for use in barycentric-coordinate computations
 
