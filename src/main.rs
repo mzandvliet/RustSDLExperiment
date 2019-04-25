@@ -202,8 +202,9 @@ fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv:
     let normal = Vec3f::cross(&(&(p2 - p1)).into(), &(&(p3 - p1)).into()); // todo: lol, fix dis ref/deref mess
     let normal = normal.normalize();
 
+    // backface culling
     let cam_to_tri: Vec3f = Vec3f::from(&p1) - Vec3f::new(0.0, 0.0, -8.0);
-    if Vec3f::dot(&cam_to_tri, &normal) < 0.0 { // backface culling
+    if Vec3f::dot(&cam_to_tri, &normal) < 0.0 {
         // Lighting
         let light_dir = Vec3f::new(0.0, -0.5, 1.0).normalize();
         let l_dot_n = f32::max(0.0, -Vec3f::dot(&normal, &light_dir));

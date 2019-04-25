@@ -27,6 +27,18 @@ impl Color {
             b: b,
         }
     }
+
+    pub fn red() -> Color {
+        Color::new(255, 0, 0)
+    }
+
+    pub fn green() -> Color {
+        Color::new(0, 255, 0)
+    }
+
+    pub fn blue() -> Color {
+        Color::new(0, 0, 255)
+    }
 }
 
 // Set an individual pixel's RGB color
@@ -141,8 +153,21 @@ pub fn triangle_solid(screen: &mut Screen, a: Vec2f, b: Vec2f, c: Vec2f, color: 
         for y in (aabb.0).1..(aabb.1).1 {
             // Transform pixel position into camera space. If inside cam-space triangle, draw it.
             let pix_camspace = to_camspace(&(x as i32, y as i32), &screen_dims);
-            if pixel_in_triangle(&a, &b, &c, &pix_camspace) {
-                set_pixel(screen, x as usize, y as usize, color);
+
+            let area = signed_area(&a, &b, &c);
+            let w0 = signed_area(&a, &b, &pix_camspace) / area;
+            let w1 = signed_area(&b, &c, &pix_camspace) / area;
+            let w2 = signed_area(&c, &a, &pix_camspace) / area;
+
+            let mut inside: bool = true;
+
+            inside &= w0 > 0.0;
+            inside &= w1 > 0.0;
+            inside &= w2 > 0.0;
+
+            if inside {
+                let color = blend_color(Color::red(), Color::green(), Color::blue(), w0, w1, w2);
+                set_pixel(screen, x as usize, y as usize, &color);
             }
         }
     }
@@ -177,20 +202,16 @@ fn get_aabb(points: Vec<(i32,i32)>, screen_dims: (i32, i32)) -> ((i32,i32), (i32
     ((x_min-1, y_min-1), (x_max+1, y_max+1)) 
 }
 
-fn test_edge(a: &Vec2f, b: &Vec2f, p: &Vec2f) -> f32 {
+fn signed_area(a: &Vec2f, b: &Vec2f, p: &Vec2f) -> f32 {
     (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)
 }
 
-fn pixel_in_triangle(a: &Vec2f, b: &Vec2f, c: &Vec2f, p: &Vec2f) -> bool {
-    let mut inside: bool = true;
-
-    inside &= test_edge(a, b, p) > 0.0;
-    inside &= test_edge(b, c, p) > 0.0;
-    inside &= test_edge(c, a, p) > 0.0;
-
-    // Todo: want to preserve edge test float values for use in barycentric-coordinate computations
-
-    inside
+fn blend_color(a: Color, b: Color, c: Color, w0: f32, w1: f32, w2: f32) -> Color {
+    Color::new(
+        ((a.r as f32 * w0) + (b.r as f32 * w1) + (c.r as f32 * w2)) as u8,
+        ((a.g as f32 * w0) + (b.g as f32 * w1) + (c.g as f32 * w2)) as u8,
+        ((a.b as f32 * w0) + (b.b as f32 * w1) + (c.b as f32 * w2)) as u8,
+    )
 }
 
 // Bresenham-style circle drawing algorithm, as per this wonderful paper:
