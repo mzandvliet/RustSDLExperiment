@@ -89,30 +89,28 @@ pub fn triangle_wireframe(screen: &mut Screen, a: (i32, i32), b: (i32, i32), c: 
 }
 
 pub fn triangle_solid(screen: &mut Screen, a: (i32, i32), b: (i32, i32), c: (i32, i32), color: &Color) {
-    // Todo:
-    // - get triangle aabb to limit range of pixels considered
+    let aabb = get_aabb(vec!(a,b,c), (screen.width as i32, screen.height as i32));
 
-    for x in 0..screen.width {
-        for y in 0..screen.height {
+    for x in (aabb.0).0..(aabb.1).0 {
+        for y in (aabb.0).1..(aabb.1).1 {
             if pixel_in_triangle(a, b, c, (x as i32,y as i32)) {
-                set_pixel(screen, x, y, color);
+                set_pixel(screen, x as usize, y as usize, color);
             }
         }
     }
 }
 
-// Todo: can probably do this entirely in integer coords?
-fn get_aabb(points: Vec<Vec4f>, s: (i32, i32)) -> ((i32,i32), (i32,i32)){
-    let mut x_min: i32 = s.0;
-    let mut y_min: i32 = s.1;
+fn get_aabb(points: Vec<(i32,i32)>, screen_dims: (i32, i32)) -> ((i32,i32), (i32,i32)){
+    let mut x_min: i32 = screen_dims.0;
+    let mut y_min: i32 = screen_dims.1;
     let mut x_max: i32 = 0;
     let mut y_max: i32 = 0;
 
     for p in points.iter() {
-        if (p.x as i32) < x_min {x_min = p.x as i32;}
-        if (p.y as i32) < y_min {y_min = p.y as i32;}
-        if (p.x as i32) > x_max {x_max = p.x as i32;}
-        if (p.y as i32) > y_max {y_max = p.y as i32;}
+        if (p.0) < x_min {x_min = p.0;}
+        if (p.1) < y_min {y_min = p.1;}
+        if (p.0) > x_max {x_max = p.0;}
+        if (p.1) > y_max {y_max = p.1;}
     }
 
     ((x_min, y_min), (x_max, y_max))
