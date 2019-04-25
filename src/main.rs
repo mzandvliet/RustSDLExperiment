@@ -149,7 +149,7 @@ fn do_game() -> Result<(), String> {
         // Let's draw our cube
 
         // rotate and translate it in world space
-        let tri_mat = Mat4x4f::translation(0.0, f32::sin(time * 0.5) * 2.0, 0.0) * Mat4x4f::rotation_y(time * 1.3456);
+        let tri_mat = Mat4x4f::translation(0.0, f32::sin(time * 1.0) * 2.0, 0.0) * Mat4x4f::rotation_y(time * 2.0);
         
         // draw all tris in sequence
         let num_tris = tris.len() / 3;
@@ -198,38 +198,43 @@ fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv:
     let p2 = *obj_mat * *p2;
     let p3 = *obj_mat * *p3;
 
-    // Lighting
     let normal = Vec3f::cross(&(&(p2 - p1)).into(), &(&(p3 - p1)).into()); // todo: lol, fix dis ref/deref mess
     let normal = normal.normalize();
 
-    let light_dir = Vec3f::new(0.0, -0.5, 1.0).normalize();
-    let l_dot_n = f32::max(0.0, -Vec3f::dot(&normal, &light_dir));
+    let cam_to_tri: Vec3f = Vec3f::from(&p1) - Vec3f::new(0.0, 0.0, -8.0);
+    if Vec3f::dot(&cam_to_tri, &normal) < 0.0 {
+        // Lighting
+        let light_dir = Vec3f::new(0.0, -0.5, 1.0).normalize();
+        let l_dot_n = f32::max(0.0, -Vec3f::dot(&normal, &light_dir));
 
-    // World to camera space
-    let p1 = *cam_inv * p1;
-    let p2 = *cam_inv * p2;
-    let p3 = *cam_inv * p3;
+        // World to camera space
+        let p1 = *cam_inv * p1;
+        let p2 = *cam_inv * p2;
+        let p3 = *cam_inv * p3;
 
-    // Projection
-    let p1 = cam_proj.mul_norm(&p1);
-    let p2 = cam_proj.mul_norm(&p2);
-    let p3 = cam_proj.mul_norm(&p3);
+        // Projection
+        let p1 = cam_proj.mul_norm(&p1);
+        let p2 = cam_proj.mul_norm(&p2);
+        let p3 = cam_proj.mul_norm(&p3);
 
-    let p1 = to_pixelspace(p1);
-    let p2 = to_pixelspace(p2);
-    let p3 = to_pixelspace(p3);
+        let p1 = to_pixelspace(p1);
+        let p2 = to_pixelspace(p2);
+        let p3 = to_pixelspace(p3);
 
-    let screen_dims = (screen.width as i32, screen.height as i32);
+        let screen_dims = (screen.width as i32, screen.height as i32);
 
-    let p1s = clip_point((p1.x as i32, p1.y as i32), screen_dims);
-    let p2s = clip_point((p2.x as i32, p2.y as i32), screen_dims);
-    let p3s = clip_point((p3.x as i32, p3.y as i32), screen_dims);
+        let p1s = clip_point((p1.x as i32, p1.y as i32), screen_dims);
+        let p2s = clip_point((p2.x as i32, p2.y as i32), screen_dims);
+        let p3s = clip_point((p3.x as i32, p3.y as i32), screen_dims);
 
-    // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
+        // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
 
-    let shaded_color = draw::Color::new((255.0 * l_dot_n) as u8, (100.0 * l_dot_n) as u8, (150.0 * l_dot_n) as u8);
-    draw::triangle_solid(screen, p1s, p2s, p3s, &shaded_color);
-    draw::triangle_wireframe(screen, p1s, p2s, p3s, &draw::Color::new(255, 255, 255));
+        let shaded_color = draw::Color::new((255.0 * l_dot_n) as u8, (100.0 * l_dot_n) as u8, (150.0 * l_dot_n) as u8);
+        draw::triangle_solid(screen, p1s, p2s, p3s, &shaded_color);
+        draw::triangle_wireframe(screen, p1s, p2s, p3s, &draw::Color::new(255, 255, 255));
+    }
+
+    
 }
 
 fn is_line_visible(a: (i32, i32), b: (i32, i32), screen_dims: (i32, i32)) -> bool {
