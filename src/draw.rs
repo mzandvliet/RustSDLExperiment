@@ -116,6 +116,7 @@ fn get_aabb(points: Vec<(i32,i32)>, screen_dims: (i32, i32)) -> ((i32,i32), (i32
     ((x_min, y_min), (x_max, y_max))
 }
 
+// Todo: probably want to do this with support for fractional values
 fn test_edge(a: (i32, i32), b: (i32, i32), p: (i32, i32)) -> i32 {
     (p.0 - a.0) * (b.1 - a.1) - (p.1 - a.1) * (b.0 - a.0)
 }

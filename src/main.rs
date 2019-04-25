@@ -193,9 +193,17 @@ fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv:
     // - loop over a list of points instead
     // - do backface culling before rendering solids
 
+    // Obj to world
     let p1 = *obj_mat * *p1;
     let p2 = *obj_mat * *p2;
     let p3 = *obj_mat * *p3;
+
+    // Lighting
+    let normal = Vec3f::cross(&(&(p2 - p1)).into(), &(&(p3 - p1)).into()); // todo: lol, fix dis ref/deref mess
+    let normal = normal.normalize();
+
+    let light_dir = Vec3f::new(0.0, -0.5, 1.0).normalize();
+    let l_dot_n = f32::max(0.0, -Vec3f::dot(&normal, &light_dir));
 
     // World to camera space
     let p1 = *cam_inv * p1;
@@ -219,7 +227,8 @@ fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv:
 
     // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
 
-    draw::triangle_solid(screen, p1s, p2s, p3s, &draw::Color::new(255, 100, 150));
+    let shaded_color = draw::Color::new((255.0 * l_dot_n) as u8, (100.0 * l_dot_n) as u8, (150.0 * l_dot_n) as u8);
+    draw::triangle_solid(screen, p1s, p2s, p3s, &shaded_color);
     draw::triangle_wireframe(screen, p1s, p2s, p3s, &draw::Color::new(255, 255, 255));
 }
 

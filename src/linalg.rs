@@ -153,12 +153,25 @@ impl Vec3f {
         }
     }
 
+    pub fn length(&self) -> f32 {
+        f32::sqrt(Vec3f::dot(self, self))
+    }
+
+    pub fn normalize(&self) -> Self {
+        let len = self.length();
+        Vec3f::new(
+            self.x / len,
+            self.y / len,
+            self.z / len
+        )
+    }
+
     // Todo: define using inner product trait?
-    pub fn dot(a : Vec3f, b : Vec3f) -> f32 {
+    pub fn dot(a : &Vec3f, b : &Vec3f) -> f32 {
         a.x * b.x + a.y * b.y + a.z * b.z
     }
 
-    pub fn cross(a : Vec3f, b : Vec3f) -> Self {
+    pub fn cross(a : &Vec3f, b : &Vec3f) -> Self {
         Vec3f::new(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
     }
 }
@@ -599,13 +612,13 @@ impl Mat4x4f {
         let z = &self[[2,3]];
         let w = &self[[3,3]];
 
-        let mut s = Vec3f::cross(a, b);
-        let mut t = Vec3f::cross(c, d);
+        let mut s = Vec3f::cross(&a, &b);
+        let mut t = Vec3f::cross(&c, &d);
         let mut u = a * y - b * x;
         let mut v = c * w - d * z;
 
         // Todo: needs a det(m) == 0 check, otherwise we get inf->nan
-        let inv_det = 1.0 / (Vec3f::dot(s, v) + Vec3f::dot(t, u));
+        let inv_det = 1.0 / (Vec3f::dot(&s, &v) + Vec3f::dot(&t, &u));
 
         // println!("det: {:?}", (Vec3f::dot(s, v) + Vec3f::dot(t, u)));
 
@@ -614,16 +627,16 @@ impl Mat4x4f {
         u *= inv_det;
         v *= inv_det;
 
-        let r0 = Vec3f::cross(b, v) + t * y;
-        let r1 = Vec3f::cross(v, a) - t * x;
-        let r2 = Vec3f::cross(d, u) + s * w;
-        let r3 = Vec3f::cross(u, c) - s * z;
+        let r0 = Vec3f::cross(&b, &v) + t * y;
+        let r1 = Vec3f::cross(&v, &a) - t * x;
+        let r2 = Vec3f::cross(&d, &u) + s * w;
+        let r3 = Vec3f::cross(&u, &c) - s * z;
 
         Mat4x4f::new(
-            r0.x, r0.y, r0.z, -Vec3f::dot(b, t),
-            r1.x, r1.y, r1.z,  Vec3f::dot(a, t),
-            r2.x, r2.y, r2.z, -Vec3f::dot(d, s),
-            r3.x, r3.y, r3.z,  Vec3f::dot(c, s),
+            r0.x, r0.y, r0.z, -Vec3f::dot(&b, &t),
+            r1.x, r1.y, r1.z,  Vec3f::dot(&a, &t),
+            r2.x, r2.y, r2.z, -Vec3f::dot(&d, &s),
+            r3.x, r3.y, r3.z,  Vec3f::dot(&c, &s),
         )
     }
 
@@ -805,14 +818,14 @@ mod tests {
     fn test_dot_vec3f() {
         let a = Vec3f { x: 1.0, y: 2.0, z: 3.0 };
         let b = Vec3f { x: 2.0, y: 3.0, z: 4.0 };
-        assert_approx_eq!(Vec3f::dot(a, b), 20.0);
+        assert_approx_eq!(Vec3f::dot(&a, &b), 20.0);
     }
 
     #[test]
     fn test_cross_vec3f() {
         let a = Vec3f { x: 1.0, y: 0.0, z: 0.0 };
         let b = Vec3f { x: 0.0, y: 1.0, z: 0.0 };
-        assert_eq!(Vec3f::cross(a,b), Vec3f::new(0.0, 0.0, 1.0));
+        assert_eq!(Vec3f::cross(&a,&b), Vec3f::new(0.0, 0.0, 1.0));
     }
 
     #[test]
