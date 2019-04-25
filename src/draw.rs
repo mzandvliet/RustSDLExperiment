@@ -37,16 +37,17 @@ pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: &Color) {
 
     // Todo: you don't want to be doing asserts this nested within core loops
     // what we need is line culling and clipping stages before we draw
-    assert!(x < screen.width);
-    assert!(y < screen.height);
+    // assert!(x < screen.width);
+    // assert!(y < screen.height);
+    if x < screen.width && y < screen.height {
+        let pitch = screen.width * 3;
+        let offset = y * pitch + x * 3;
 
-    let pitch = screen.width * 3;
-    let offset = y * pitch + x * 3;
-
-    // Todo: given that Rust does bounds checks, it *might* be faster to writing using (u8,u8,u8) or (u8,u8,u8,u8) tuples
-    screen.buffer[offset] = c.r;
-    screen.buffer[offset+1] = c.g;
-    screen.buffer[offset+2] = c.b;
+        // Todo: given that Rust does bounds checks, it *might* be faster to writing using (u8,u8,u8) or (u8,u8,u8,u8) tuples
+        screen.buffer[offset] = c.r;
+        screen.buffer[offset+1] = c.g;
+        screen.buffer[offset+2] = c.b;
+    }
 }
 
 // Bresenham line drawing algorithm, as per this wonderful paper:
@@ -123,52 +124,58 @@ pub fn triangle_wired(screen: &mut Screen, a: Vec2f, b: Vec2f, c: Vec2f, color: 
 pub fn triangle_solid(screen: &mut Screen, a: Vec2f, b: Vec2f, c: Vec2f, color: &Color) {
     let screen_dims = (screen.width as i32, screen.height as i32);
 
-    // let a_s = to_pixelspace(&a, &screen_dims);
-    // let b_s = to_pixelspace(&b, &screen_dims);
-    // let c_s = to_pixelspace(&c, &screen_dims);
+    // We generate a screen-pixel-space bounding box around the triangle
+    // to limit the region of pixels tested against the triangle
+    let a_s = to_pixelspace(&a, &screen_dims);
+    let b_s = to_pixelspace(&b, &screen_dims);
+    let c_s = to_pixelspace(&c, &screen_dims);
 
-    // let a_s = clip_point((a_s.0, a_s.1), screen_dims);
-    // let b_s = clip_point((b_s.0, b_s.1), screen_dims);
-    // let c_s = clip_point((c_s.0, c_s.1), screen_dims);
+    let a_s = clip_point((a_s.0, a_s.1), screen_dims);
+    let b_s = clip_point((b_s.0, b_s.1), screen_dims);
+    let c_s = clip_point((c_s.0, c_s.1), screen_dims);
 
-    // Todo: aabb and edge test calculations with vec2
+    let aabb = get_aabb(vec!(a_s,b_s,c_s), (screen.width as i32, screen.height as i32));
 
-    //let aabb = get_aabb(vec!(a_s,b_s,c_s), (screen.width as i32, screen.height as i32));
-
-    // for x in (aabb.0).0..(aabb.1).0 {
-    //     for y in (aabb.0).1..(aabb.1).1 {
-    //         if pixel_in_triangle(a, b, c, (x as i32,y as i32)) {
-    //             set_pixel(screen, x as usize, y as usize, color);
-    //         }
-    //     }
-    // }
-
-    for x in 0..screen.width {
-        for y in 0..screen.height {
+    // Loop over bounded pixels
+    for x in (aabb.0).0..(aabb.1).0 {
+        for y in (aabb.0).1..(aabb.1).1 {
+            // Transform pixel position into camera space. If inside cam-space triangle, draw it.
             let pix_camspace = to_camspace(&(x as i32, y as i32), &screen_dims);
-            //println!("{},{} -> {:?}", x, y, pix_camspace);
             if pixel_in_triangle(&a, &b, &c, &pix_camspace) {
-                set_pixel(screen, x, y, color);
+                set_pixel(screen, x as usize, y as usize, color);
             }
         }
     }
+
+    // Without bounding box:
+    // for x in 0..screen.width {
+    //     for y in 0..screen.height {
+    //         let pix_camspace = to_camspace(&(x as i32, y as i32), &screen_dims);
+    //         //println!("{},{} -> {:?}", x, y, pix_camspace);
+    //         if pixel_in_triangle(&a, &b, &c, &pix_camspace) {
+    //             set_pixel(screen, x, y, color);
+    //         }
+    //     }
+    // }
 }
 
-// fn get_aabb(points: Vec<(i32,i32)>, screen_dims: (i32, i32)) -> ((i32,i32), (i32,i32)){
-//     let mut x_min: i32 = screen_dims.0;
-//     let mut y_min: i32 = screen_dims.1;
-//     let mut x_max: i32 = 0;
-//     let mut y_max: i32 = 0;
+fn get_aabb(points: Vec<(i32,i32)>, screen_dims: (i32, i32)) -> ((i32,i32), (i32,i32)){
+    let mut x_min: i32 = screen_dims.0;
+    let mut y_min: i32 = screen_dims.1;
+    let mut x_max: i32 = 0;
+    let mut y_max: i32 = 0;
 
-//     for p in points.iter() {
-//         if (p.0) < x_min {x_min = p.0;}
-//         if (p.1) < y_min {y_min = p.1;}
-//         if (p.0) > x_max {x_max = p.0;}
-//         if (p.1) > y_max {y_max = p.1;}
-//     }
+    for p in points.iter() {
+        if (p.0) < x_min {x_min = p.0;}
+        if (p.1) < y_min {y_min = p.1;}
+        if (p.0) > x_max {x_max = p.0;}
+        if (p.1) > y_max {y_max = p.1;}
+    }
 
-//     ((x_min, y_min), (x_max, y_max))
-// }
+    // bounding box min/max points, padded with extra pixel
+    // Todo: if we did the bounding box in camera space, we wouldn't need to pad like this
+    ((x_min-1, y_min-1), (x_max+1, y_max+1)) 
+}
 
 fn test_edge(a: &Vec2f, b: &Vec2f, p: &Vec2f) -> f32 {
     (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)
