@@ -11,8 +11,10 @@ use std::{thread, time};
 
 mod draw;
 mod linalg;
+mod resources;
 
 use linalg::*;
+use resources::*;
 
 /*
     Use From/Into trait impls to get around all the explicit casting
@@ -114,12 +116,41 @@ fn do_game() -> Result<(), String> {
         7, 4, 0, 
         3, 7, 0);
 
+     let uvs = vec!(
+        // front
+        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 1.0), Vec2f::new(1.0, 1.0), 
+        Vec2f::new(0.0, 0.0), Vec2f::new(1.0, 1.0), Vec2f::new(1.0, 0.0),
+
+        // back
+        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), 
+        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0),
+
+        // left
+        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), 
+        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0),
+
+        // right
+        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), 
+        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0),
+        
+        // top
+        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), 
+        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0),
+
+        // bottom
+        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), 
+        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0),
+     );
+
     // Project matrix
     let near: f32 = 0.1;
     let far: f32 = 1000.0;
     let fov: f32 = 80.0;
     let aspect: f32 =  HEIGHT as f32 / WIDTH as f32;
     let proj_mat = Mat4x4f::projection(near, far, aspect, fov);
+
+    // Our test texture
+    let tex = load_texture(String::from("resources/test.png")).unwrap();
 
     'running: loop {
         // Game simulation logic
@@ -159,6 +190,10 @@ fn do_game() -> Result<(), String> {
                 &verts[tris[i*3 + 0]],
                 &verts[tris[i*3 + 1]],
                 &verts[tris[i*3 + 2]],
+                &uvs[tris[i*3 + 0]],
+                &uvs[tris[i*3 + 1]],
+                &uvs[tris[i*3 + 2]],
+                &tex,
                 &tri_mat,
                 &cam_mat_inverse,
                 &proj_mat,
@@ -188,7 +223,12 @@ fn do_game() -> Result<(), String> {
     Ok(())
 }
 
-fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f, screen: &mut draw::Screen) {
+fn draw_triangle(
+    p1: &Vec4f, p2: &Vec4f, p3: &Vec4f,
+    uv1: &Vec2f, uv2: &Vec2f, uv3: &Vec2f,
+    tex: &Vec<draw::Color>,
+    obj_mat: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f,
+    screen: &mut draw::Screen) {
     // Todo: 
     // - split this into multiple stages, of course, and
     // - loop over a list of points instead
@@ -226,10 +266,16 @@ fn draw_triangle(p1: &Vec4f, p2: &Vec4f, p3: &Vec4f, obj_mat: &Mat4x4f, cam_inv:
 
         // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
 
-        let shaded_color = draw::Color::new((255.0 * l_dot_n) as u8, (100.0 * l_dot_n) as u8, (150.0 * l_dot_n) as u8);
-        let wire_color = draw::Color::new(255, 255, 255);
-        draw::triangle_solid(screen, p1, p2, p3, &shaded_color);
+        // let shaded_color = draw::Color::new((255.0 * l_dot_n) as u8, (100.0 * l_dot_n) as u8, (150.0 * l_dot_n) as u8);
+        // let wire_color = draw::Color::new(255, 255, 255);
+        // draw::triangle_solid(screen, p1, p2, p3, &shaded_color);
         // draw::triangle_wired(screen, p1, p2, p3, &wire_color);
+
+        draw::triangle_textured(
+            screen,
+            &p1, &p2, &p3,
+            uv1, uv2, uv3,
+            tex);
     }
 }
 

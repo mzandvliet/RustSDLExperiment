@@ -118,7 +118,7 @@ fn clip_point(point: (i32, i32), screen_dims: (i32, i32)) -> (i32, i32) {
      i32::min(i32::max(0, point.1), screen_dims.1-1))
 }
 
-pub fn triangle_wired(screen: &mut Screen, a: Vec2f, b: Vec2f, c: Vec2f, color: &Color) {
+pub fn triangle_wired(screen: &mut Screen, a: &Vec2f, b: &Vec2f, c: &Vec2f, color: &Color) {
     let screen_dims = (screen.width as i32, screen.height as i32);
     let a = to_pixelspace(&a, &screen_dims);
     let b = to_pixelspace(&b, &screen_dims);
@@ -133,14 +133,14 @@ pub fn triangle_wired(screen: &mut Screen, a: Vec2f, b: Vec2f, c: Vec2f, color: 
     line(screen, c, a, color);
 }
 
-pub fn triangle_solid(screen: &mut Screen, a: Vec2f, b: Vec2f, c: Vec2f, color: &Color) {
+pub fn triangle_solid(screen: &mut Screen, a: &Vec2f, b: &Vec2f, c: &Vec2f, color: &Color) {
     let screen_dims = (screen.width as i32, screen.height as i32);
 
     // We generate a screen-pixel-space bounding box around the triangle
     // to limit the region of pixels tested against the triangle
-    let a_s = to_pixelspace(&a, &screen_dims);
-    let b_s = to_pixelspace(&b, &screen_dims);
-    let c_s = to_pixelspace(&c, &screen_dims);
+    let a_s = to_pixelspace(a, &screen_dims);
+    let b_s = to_pixelspace(b, &screen_dims);
+    let c_s = to_pixelspace(c, &screen_dims);
 
     let a_s = clip_point((a_s.0, a_s.1), screen_dims);
     let b_s = clip_point((b_s.0, b_s.1), screen_dims);
@@ -182,6 +182,52 @@ pub fn triangle_solid(screen: &mut Screen, a: Vec2f, b: Vec2f, c: Vec2f, color: 
     //         }
     //     }
     // }
+}
+
+pub fn triangle_textured(
+    screen: &mut Screen,
+    a: &Vec2f, b: &Vec2f, c: &Vec2f,
+    uv1: &Vec2f, uv2: &Vec2f, uv3: &Vec2f,
+    tex: &Vec<Color>) {
+    let screen_dims = (screen.width as i32, screen.height as i32);
+
+    // We generate a screen-pixel-space bounding box around the triangle
+    // to limit the region of pixels tested against the triangle
+    let a_s = to_pixelspace(&a, &screen_dims);
+    let b_s = to_pixelspace(&b, &screen_dims);
+    let c_s = to_pixelspace(&c, &screen_dims);
+
+    let a_s = clip_point((a_s.0, a_s.1), screen_dims);
+    let b_s = clip_point((b_s.0, b_s.1), screen_dims);
+    let c_s = clip_point((c_s.0, c_s.1), screen_dims);
+
+    let aabb = get_aabb(vec!(a_s,b_s,c_s), (screen.width as i32, screen.height as i32));
+
+    // Loop over bounded pixels
+    for x in (aabb.0).0..(aabb.1).0 {
+        for y in (aabb.0).1..(aabb.1).1 {
+            // Transform pixel position into camera space. If inside cam-space triangle, draw it.
+            let pix_camspace = to_camspace(&(x as i32, y as i32), &screen_dims);
+
+            let area = signed_area(&a, &b, &c);
+            let w0 = signed_area(&a, &b, &pix_camspace) / area;
+            let w1 = signed_area(&b, &c, &pix_camspace) / area;
+            let w2 = signed_area(&c, &a, &pix_camspace) / area;
+
+            let mut inside: bool = true;
+
+            inside &= w0 > 0.0;
+            inside &= w1 > 0.0;
+            inside &= w2 > 0.0;
+
+            if inside {
+                let uv = *uv1 * w0 + *uv2 * w1 + *uv3 * w2;
+                let uv_scr = ((uv.x * 64.0) as usize, (uv.y * 64.0) as usize);
+                let color = tex[uv_scr.0 * 64 + uv_scr.1];
+                set_pixel(screen, x as usize, y as usize, &color);
+            }
+        }
+    }
 }
 
 fn get_aabb(points: Vec<(i32,i32)>, screen_dims: (i32, i32)) -> ((i32,i32), (i32,i32)){
