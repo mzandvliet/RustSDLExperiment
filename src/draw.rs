@@ -188,7 +188,8 @@ pub fn triangle_textured(
     screen: &mut Screen,
     a: &Vec2f, b: &Vec2f, c: &Vec2f,
     a_uv: &Vec2f, b_uv: &Vec2f, c_uv: &Vec2f,
-    tex: &Vec<Color>) {
+    tex: &Vec<Color>,
+    l_dot_n: f32) {
     let screen_dims = (screen.width as i32, screen.height as i32);
 
     // We generate a screen-pixel-space bounding box around the triangle
@@ -213,8 +214,8 @@ pub fn triangle_textured(
             let w_c = signed_area(&a, &b, &pix_camspace) / area;
             let w_a = signed_area(&b, &c, &pix_camspace) / area;
             let w_b = signed_area(&c, &a, &pix_camspace) / area;
-            // Todo: these signed areas sometimes go negative, so
-            // can't directly use them for interpolating vertex data
+            // Todo: these signed areas sometimes still go negative, so
+            // can't directly use them for interpolating vertex data yet
 
             // println!("{}, {}, {}", w0, w1, w2);
 
@@ -227,8 +228,14 @@ pub fn triangle_textured(
             if inside {
                 let uv = *a_uv * w_a + *b_uv * w_b + *c_uv * w_c;
                 let uv_scr = ((uv.x * 64.0) as usize, ((1.0 - uv.y) * 64.0) as usize);
-                let color = tex[uv_scr.0 * 64 + uv_scr.1];
-                set_pixel(screen, x as usize, y as usize, &color);
+                let albedo = tex[uv_scr.0 * 64 + uv_scr.1]; // bug: index can go out of bounds here
+                let brightness = 0.1 + 0.9 * l_dot_n;
+                let shaded_color = Color::new(
+                    (albedo.r as f32 * brightness) as u8,
+                    (albedo.g as f32 * brightness) as u8,
+                    (albedo.b as f32 * brightness) as u8);
+
+                set_pixel(screen, x as usize, y as usize, &shaded_color);
             }
         }
     }

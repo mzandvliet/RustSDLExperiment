@@ -180,12 +180,15 @@ fn do_game() -> Result<(), String> {
         // Let's draw our cube
 
         // rotate and translate it in world space
-        let tri_mat = Mat4x4f::translation(0.0, f32::sin(time * 1.0) * 2.0, 0.0) * Mat4x4f::rotation_y(time * 2.0);
+        let tri_mat = 
+            Mat4x4f::translation(0.0, f32::sin(time * 1.0) * 2.0, 0.0) *
+            Mat4x4f::rotation_y(f32::sin(time * 3.0) * 1.0) *
+            Mat4x4f::rotation_x(f32::sin(time * 2.0) * 0.5);
         //let tri_mat = Mat4x4f::identity();
         
         // draw all tris in sequence
         let num_tris = tris.len() / 3;
-        for i in 0..num_tris { // 0..num_tris
+        for i in 0..num_tris {
             draw_triangle(
                 &verts[tris[i*3 + 0]],
                 &verts[tris[i*3 + 1]],
@@ -266,7 +269,7 @@ fn draw_triangle(
 
         // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
 
-        let shaded_color = draw::Color::new((255.0 * l_dot_n) as u8, (100.0 * l_dot_n) as u8, (150.0 * l_dot_n) as u8);
+        // let shaded_color = draw::Color::new((255.0 * l_dot_n) as u8, (100.0 * l_dot_n) as u8, (150.0 * l_dot_n) as u8);
         // let wire_color = draw::Color::new(255, 255, 255);
         // draw::triangle_solid(screen, &p1, &p2, &p3, &shaded_color);
         // draw::triangle_wired(screen, &p1, &p2, &p3, &wire_color);
@@ -275,7 +278,8 @@ fn draw_triangle(
             screen,
             &p1, &p2, &p3,
             uv1, uv2, uv3,
-            tex);
+            tex,
+            l_dot_n);
     }
 }
 

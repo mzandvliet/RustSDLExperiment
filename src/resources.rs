@@ -11,11 +11,6 @@ pub fn load_texture(path: String) -> Result<Vec<Color>,String> {
 
     let mut tex: Vec<Color> = Vec::with_capacity((dims.0 * dims.1) as usize);
 
-    // for p in img.pixels() {
-    //     println!("{}, {}, {:?}", p.0, p.1, p.2);
-    //     tex.push(Color::new(p.2[0], p.2[1], p.2[2]));
-    // }
-
     for x in 0..dims.0 {
         for y in 0..dims.1 {
             let c = img.get_pixel(x, y);
