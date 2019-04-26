@@ -7,7 +7,7 @@
 use crate::linalg::*;
 
 pub struct Screen {
-    pub buffer: Box<[u8]>,
+    pub buffer: Vec<u8>,
     pub width: usize,
     pub height: usize,
 }
@@ -171,17 +171,6 @@ pub fn triangle_solid(screen: &mut Screen, a: &Vec2f, b: &Vec2f, c: &Vec2f, colo
             }
         }
     }
-
-    // Without bounding box:
-    // for x in 0..screen.width {
-    //     for y in 0..screen.height {
-    //         let pix_camspace = to_camspace(&(x as i32, y as i32), &screen_dims);
-    //         //println!("{},{} -> {:?}", x, y, pix_camspace);
-    //         if pixel_in_triangle(&a, &b, &c, &pix_camspace) {
-    //             set_pixel(screen, x, y, color);
-    //         }
-    //     }
-    // }
 }
 
 pub fn triangle_textured(
@@ -214,7 +203,7 @@ pub fn triangle_textured(
             let w_c = signed_area(&a, &b, &pix_camspace) / area;
             let w_a = signed_area(&b, &c, &pix_camspace) / area;
             let w_b = signed_area(&c, &a, &pix_camspace) / area;
-            // Todo: these signed areas sometimes still go negative, so
+            // Bug: these signed areas sometimes still go negative, so
             // can't directly use them for interpolating vertex data yet
 
             // println!("{}, {}, {}", w0, w1, w2);
@@ -228,7 +217,7 @@ pub fn triangle_textured(
             if inside {
                 let uv = *a_uv * w_a + *b_uv * w_b + *c_uv * w_c;
                 let uv_scr = ((uv.x * 64.0) as usize, ((1.0 - uv.y) * 64.0) as usize);
-                let albedo = tex[uv_scr.0 * 64 + uv_scr.1]; // bug: index can go out of bounds here
+                let albedo = tex[uv_scr.0 * 64 + uv_scr.1]; // bug: index can go out of bounds here, due to negative signed areas
                 let brightness = 0.1 + 0.9 * l_dot_n;
                 let shaded_color = Color::new(
                     (albedo.r as f32 * brightness) as u8,
