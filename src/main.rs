@@ -190,9 +190,9 @@ fn do_game() -> Result<(), String> {
                 &verts[tris[i*3 + 0]],
                 &verts[tris[i*3 + 1]],
                 &verts[tris[i*3 + 2]],
-                &uvs[tris[i*3 + 0]],
-                &uvs[tris[i*3 + 1]],
-                &uvs[tris[i*3 + 2]],
+                &uvs[i*3 + 0],
+                &uvs[i*3 + 1],
+                &uvs[i*3 + 2],
                 &tex,
                 &tri_mat,
                 &cam_mat_inverse,
@@ -266,10 +266,10 @@ fn draw_triangle(
 
         // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
 
-        // let shaded_color = draw::Color::new((255.0 * l_dot_n) as u8, (100.0 * l_dot_n) as u8, (150.0 * l_dot_n) as u8);
+        let shaded_color = draw::Color::new((255.0 * l_dot_n) as u8, (100.0 * l_dot_n) as u8, (150.0 * l_dot_n) as u8);
         // let wire_color = draw::Color::new(255, 255, 255);
-        // draw::triangle_solid(screen, p1, p2, p3, &shaded_color);
-        // draw::triangle_wired(screen, p1, p2, p3, &wire_color);
+        // draw::triangle_solid(screen, &p1, &p2, &p3, &shaded_color);
+        // draw::triangle_wired(screen, &p1, &p2, &p3, &wire_color);
 
         draw::triangle_textured(
             screen,

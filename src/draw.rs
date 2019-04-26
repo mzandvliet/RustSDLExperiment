@@ -187,7 +187,7 @@ pub fn triangle_solid(screen: &mut Screen, a: &Vec2f, b: &Vec2f, c: &Vec2f, colo
 pub fn triangle_textured(
     screen: &mut Screen,
     a: &Vec2f, b: &Vec2f, c: &Vec2f,
-    uv1: &Vec2f, uv2: &Vec2f, uv3: &Vec2f,
+    a_uv: &Vec2f, b_uv: &Vec2f, c_uv: &Vec2f,
     tex: &Vec<Color>) {
     let screen_dims = (screen.width as i32, screen.height as i32);
 
@@ -210,19 +210,23 @@ pub fn triangle_textured(
             let pix_camspace = to_camspace(&(x as i32, y as i32), &screen_dims);
 
             let area = signed_area(&a, &b, &c);
-            let w0 = signed_area(&a, &b, &pix_camspace) / area;
-            let w1 = signed_area(&b, &c, &pix_camspace) / area;
-            let w2 = signed_area(&c, &a, &pix_camspace) / area;
+            let w_c = signed_area(&a, &b, &pix_camspace) / area;
+            let w_a = signed_area(&b, &c, &pix_camspace) / area;
+            let w_b = signed_area(&c, &a, &pix_camspace) / area;
+            // Todo: these signed areas sometimes go negative, so
+            // can't directly use them for interpolating vertex data
+
+            // println!("{}, {}, {}", w0, w1, w2);
 
             let mut inside: bool = true;
 
-            inside &= w0 > 0.0;
-            inside &= w1 > 0.0;
-            inside &= w2 > 0.0;
+            inside &= w_c > 0.0;
+            inside &= w_a > 0.0;
+            inside &= w_b > 0.0;
 
             if inside {
-                let uv = *uv1 * w0 + *uv2 * w1 + *uv3 * w2;
-                let uv_scr = ((uv.x * 64.0) as usize, (uv.y * 64.0) as usize);
+                let uv = *a_uv * w_a + *b_uv * w_b + *c_uv * w_c;
+                let uv_scr = ((uv.x * 64.0) as usize, ((1.0 - uv.y) * 64.0) as usize);
                 let color = tex[uv_scr.0 * 64 + uv_scr.1];
                 set_pixel(screen, x as usize, y as usize, &color);
             }
