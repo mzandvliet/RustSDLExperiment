@@ -1,3 +1,4 @@
+#![feature(test)]
 
 extern crate sdl2;
 extern crate gl;
@@ -12,6 +13,7 @@ use std::{thread, time};
 mod draw;
 mod linalg;
 mod resources;
+mod bench;
 
 use linalg::*;
 use resources::*;
@@ -21,11 +23,9 @@ use resources::*;
     Pass by immutable reference more, instead of by copy. This is not C#, mister.
 
     Then:
-    Implement back-face culling (normals, or winding order)
     Implement line clipping
     Implement frustum culling
     Implement triangle clipping
-    Implement a solid, shaded, triangle rasterizer
     Implement more of Lengyel's book
 */
 
@@ -182,16 +182,16 @@ fn do_game() -> Result<(), String> {
         // Let's draw our cube
 
         // rotate and translate it in world space
-        let tri_mat = 
-            Mat4x4f::translation(0.0, f32::sin(time * 1.0) * 2.0, 0.0) *
-            Mat4x4f::rotation_y(f32::sin(time * 3.0) * 1.0) *
-            Mat4x4f::rotation_x(f32::sin(time * 2.0) * 0.5);
-        //let tri_mat = Mat4x4f::identity();
+        // let tri_mat = 
+        //     Mat4x4f::translation(0.0, f32::sin(time * 1.0) * 1.0, 0.0) *
+        //     Mat4x4f::rotation_y(f32::sin(time * 3.0) * 1.0) *
+        //     Mat4x4f::rotation_x(f32::sin(time * 2.0) * 0.5);
+        let tri_mat = Mat4x4f::identity();
         
         // draw all tris in sequence
         let num_tris = tris.len() / 3;
         for i in 0..num_tris {
-            draw_triangle(
+            draw::triangle(
                 &verts[tris[i*3 + 0]],
                 &verts[tris[i*3 + 1]],
                 &verts[tris[i*3 + 2]],
@@ -226,62 +226,6 @@ fn do_game() -> Result<(), String> {
     }
 
     Ok(())
-}
-
-fn draw_triangle(
-    p1: &Vec4f, p2: &Vec4f, p3: &Vec4f,
-    uv1: &Vec2f, uv2: &Vec2f, uv3: &Vec2f,
-    tex: &Vec<draw::Color>,
-    obj_mat: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f,
-    screen: &mut draw::Screen) {
-    // Todo: 
-    // - split this into multiple stages, of course, and
-    // - loop over a list of points instead
-    // - do backface culling before rendering solids
-
-    // Obj to world
-    let p1 = *obj_mat * *p1;
-    let p2 = *obj_mat * *p2;
-    let p3 = *obj_mat * *p3;
-
-    let normal = Vec3f::cross(&(&(p2 - p1)).into(), &(&(p3 - p1)).into()); // todo: lol, fix dis ref/deref mess
-    let normal = normal.normalize();
-
-    // backface culling
-    let cam_to_tri: Vec3f = Vec3f::from(&p1) - Vec3f::new(0.0, 0.0, -8.0);
-    if Vec3f::dot(&cam_to_tri, &normal) < 0.0 {
-        // Lighting
-        let light_dir = Vec3f::new(0.0, -0.5, 1.0).normalize();
-        let l_dot_n = f32::max(0.0, -Vec3f::dot(&normal, &light_dir));
-
-        // World to camera space
-        let p1 = *cam_inv * p1;
-        let p2 = *cam_inv * p2;
-        let p3 = *cam_inv * p3;
-
-        // Projection
-        let p1 = cam_proj.mul_norm(&p1);
-        let p2 = cam_proj.mul_norm(&p2);
-        let p3 = cam_proj.mul_norm(&p3);
-
-        let p1 = Vec2f::from(&p1);
-        let p2 = Vec2f::from(&p2);
-        let p3 = Vec2f::from(&p3);
-
-        // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
-
-        // let shaded_color = draw::Color::new((255.0 * l_dot_n) as u8, (100.0 * l_dot_n) as u8, (150.0 * l_dot_n) as u8);
-        // let wire_color = draw::Color::new(255, 255, 255);
-        // draw::triangle_solid(screen, &p1, &p2, &p3, &shaded_color);
-        // draw::triangle_wired(screen, &p1, &p2, &p3, &wire_color);
-
-        draw::triangle_textured(
-            screen,
-            &p1, &p2, &p3,
-            uv1, uv2, uv3,
-            tex,
-            l_dot_n);
-    }
 }
 
 /*

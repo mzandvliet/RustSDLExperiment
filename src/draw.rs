@@ -51,7 +51,7 @@ pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: &Color) {
     // what we need is line culling and clipping stages before we draw
     // assert!(x < screen.width);
     // assert!(y < screen.height);
-    if x < screen.width && y < screen.height {
+    // if x < screen.width && y < screen.height {
         let pitch = screen.width * 3;
         let offset = y * pitch + x * 3;
 
@@ -59,7 +59,7 @@ pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: &Color) {
         screen.buffer[offset] = c.r;
         screen.buffer[offset+1] = c.g;
         screen.buffer[offset+2] = c.b;
-    }
+    // }
 }
 
 // Bresenham line drawing algorithm, as per this wonderful paper:
@@ -95,27 +95,60 @@ pub fn line(screen: &mut Screen, a: (i32, i32), b: (i32, i32), color: &Color) {
     }
 }
 
-fn to_pixelspace(point: &Vec2f, screen_dims: &(i32, i32)) -> (i32,i32) {
-    (screen_dims.0 / 2 + (point.x * screen_dims.0 as f32) as i32,
-     screen_dims.1 / 2 - (point.y * screen_dims.1 as f32) as i32) // Note, we're inverting y here
-}
+pub fn triangle(
+    p1: &Vec4f, p2: &Vec4f, p3: &Vec4f,
+    uv1: &Vec2f, uv2: &Vec2f, uv3: &Vec2f,
+    tex: &Vec<Color>,
+    obj_mat: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f,
+    screen: &mut Screen) {
+    // Todo: 
+    // - split this into multiple stages, of course, and
+    // - loop over a list of points instead
+    // - do backface culling before rendering solids
 
-fn to_camspace(screen_point: &(i32,i32), screen_dims: &(i32,i32)) -> Vec2f {
-    Vec2f {
-        x: (screen_point.0 - screen_dims.0 / 2) as f32 / screen_dims.0 as f32,
-        y: (screen_dims.1 - screen_point.1 - screen_dims.1 / 2) as f32 / screen_dims.1 as f32, // Note, we're inverting y here
+    // Obj to world
+    let p1 = *obj_mat * *p1;
+    let p2 = *obj_mat * *p2;
+    let p3 = *obj_mat * *p3;
+
+    let normal = Vec3f::cross(&(&(p2 - p1)).into(), &(&(p3 - p1)).into()); // todo: lol, fix dis ref/deref mess
+    let normal = normal.normalize();
+
+    // backface culling
+    let cam_to_tri: Vec3f = Vec3f::from(&p1) - Vec3f::new(0.0, 0.0, -8.0);
+    if Vec3f::dot(&cam_to_tri, &normal) < 0.0 {
+        // Lighting
+        let light_dir = Vec3f::new(0.0, -0.5, 1.0).normalize();
+        let l_dot_n = f32::max(0.0, -Vec3f::dot(&normal, &light_dir));
+
+        // World to camera space
+        let p1 = *cam_inv * p1;
+        let p2 = *cam_inv * p2;
+        let p3 = *cam_inv * p3;
+
+        // Projection
+        let p1 = cam_proj.mul_norm(&p1);
+        let p2 = cam_proj.mul_norm(&p2);
+        let p3 = cam_proj.mul_norm(&p3);
+
+        let p1 = Vec2f::from(&p1);
+        let p2 = Vec2f::from(&p2);
+        let p3 = Vec2f::from(&p3);
+
+        // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
+
+        // let shaded_color = draw::Color::new((255.0 * l_dot_n) as u8, (100.0 * l_dot_n) as u8, (150.0 * l_dot_n) as u8);
+        // let wire_color = draw::Color::new(255, 255, 255);
+        // draw::triangle_solid(screen, &p1, &p2, &p3, &shaded_color);
+        // draw::triangle_wired(screen, &p1, &p2, &p3, &wire_color);
+
+        triangle_textured(
+            screen,
+            &p1, &p2, &p3,
+            uv1, uv2, uv3,
+            tex,
+            l_dot_n);
     }
-}
-
-/*
-Todo: When a line is fully off screen, don't draw it
-If partially on screen, clip the line properly, without changing its geometry
-
-For now, I'm just nudging the points into valid screen bounds
-*/
-fn clip_point(point: (i32, i32), screen_dims: (i32, i32)) -> (i32, i32) {
-    (i32::min(i32::max(0, point.0), screen_dims.0-1),
-     i32::min(i32::max(0, point.1), screen_dims.1-1))
 }
 
 pub fn triangle_wired(screen: &mut Screen, a: &Vec2f, b: &Vec2f, c: &Vec2f, color: &Color) {
@@ -200,11 +233,13 @@ pub fn triangle_textured(
             let pix_camspace = to_camspace(&(x as i32, y as i32), &screen_dims);
 
             let area = signed_area(&a, &b, &c);
-            let w_c = signed_area(&a, &b, &pix_camspace) / area;
-            let w_a = signed_area(&b, &c, &pix_camspace) / area;
-            let w_b = signed_area(&c, &a, &pix_camspace) / area;
+            let w_c = f32::min(0.95, f32::max(0.0, signed_area(&a, &b, &pix_camspace) / area));
+            let w_a = f32::min(0.95, f32::max(0.0, signed_area(&b, &c, &pix_camspace) / area));
+            let w_b = f32::min(0.95, f32::max(0.0, signed_area(&c, &a, &pix_camspace) / area));
             // Bug: these signed areas sometimes still go negative, so
             // can't directly use them for interpolating vertex data yet
+            // Could it be half-pixel offsets?
+            // Do they also sometimes go larger than 1.0?
 
             // println!("{}, {}, {}", w0, w1, w2);
 
@@ -228,6 +263,29 @@ pub fn triangle_textured(
             }
         }
     }
+}
+
+fn to_pixelspace(point: &Vec2f, screen_dims: &(i32, i32)) -> (i32,i32) {
+    (screen_dims.0 / 2 + (point.x * screen_dims.0 as f32) as i32,
+     screen_dims.1 / 2 - (point.y * screen_dims.1 as f32) as i32) // Note, we're inverting y here
+}
+
+fn to_camspace(screen_point: &(i32,i32), screen_dims: &(i32,i32)) -> Vec2f {
+    Vec2f {
+        x: (screen_point.0 - screen_dims.0 / 2) as f32 / screen_dims.0 as f32,
+        y: (screen_dims.1 - screen_point.1 - screen_dims.1 / 2) as f32 / screen_dims.1 as f32, // Note, we're inverting y here
+    }
+}
+
+/*
+Todo: When a line is fully off screen, don't draw it
+If partially on screen, clip the line properly, without changing its geometry
+
+For now, I'm just nudging the points into valid screen bounds
+*/
+fn clip_point(point: (i32, i32), screen_dims: (i32, i32)) -> (i32, i32) {
+    (i32::min(i32::max(0, point.0), screen_dims.0-1),
+     i32::min(i32::max(0, point.1), screen_dims.1-1))
 }
 
 fn get_aabb(points: Vec<(i32,i32)>, screen_dims: (i32, i32)) -> ((i32,i32), (i32,i32)){
@@ -293,88 +351,3 @@ pub fn clear(screen: &mut Screen) {
         }
     }
 }
-
-/*
-    Bresenham-style anti-aliased Bezier curve. Not currently functional.
-
-    First thing to notice; Where the C++ uses implicit casing between numerical
-    types, Rust does no such thing.
-
-    If I try:
-    a:i64 = b: i64 * c: i32;
-
-    Compiler goes: you cannot subtract those, they are different types
-    Note: From and Into traits might work well here
-
-    Next: floating point
-
-    Probably because there was no easily available rational type around,
-    and because maybe some of the numbers get really big?
-
-    We should investigate ways to use fractional arithmetic here without
-    using floats. THERE IS SO MUCH IMPLICIT CASTING IN THIS, made
-    explicit by Rust not allowing it by default.
-
-    Implementing this code is taking ages, and its not getting prettier. Lots to
-    learn about how Rust wants me to do things.
-
-    Todo: implementing the simpler algs first, build it up from there
-*/
-
-fn draw_aa_dcb(screen: &mut Screen, mut a: (i64, i64), mut b: (i64,i64), mut c: (i64, i64)) {
-    let mut sx = (c.0-b.0) as i64; let mut sy = (c.1-b.1) as i64;
-    let mut xx: i64 = (a.0-b.0) as i64; let mut yy: i64 = (a.1-b.1) as i64; let mut xy: i64;
-    let mut dx: f64; let mut dy: f64; let mut err: i64; let mut cur: f64 = (xx * sy as i64 - yy * sx as i64) as f64;
-
-    println!("xx {}, sx {}, yy {}, sy {}", xx, sx, yy, sy);
-
-    assert!(xx*sx >= 0 && yy*sy >= 0);// gradient may not change sign
-
-    if sx*sx + sy * sy > xx*xx+yy*yy {
-        c.0 = a.0; a.0 = sx+b.0; c.1 = a.1; a.1 = sy+b.1; cur = -cur; /* swap P0 P2 */
-    }
-
-    if cur != 0.0
-    {                                                                    /* no straight line */
-        sx = if a.0 < c.0 {1} else {-1};                             
-        xx += sx; xx *= sx;                                              /* x step direction */
-        sy = if a.1 < c.1 {1} else {-1};
-        yy += sy; yy *= sy;                                              /* y step direction */
-        xy = 2*xx*yy; xx *= xx; yy *= yy;                                /* differences 2nd degree */
-        if (cur * (sx*sy)as f64) < 0.0 {                                 /* negated curvature? */
-            xx = -xx; yy = -yy; xy = -xy; cur = -cur;
-        }
-        dx = (4.0*cur) * (sy*(b.0-a.0)+xx-xy) as f64;                    /* differences 1st degree */
-        dy = (4.0*cur) * (sx*(a.1-b.1)+yy-xy) as f64;
-        xx += xx; yy += yy; err = (dx+dy) as i64 + xy;                   /* error 1st step */
-        loop {                              
-            cur =  (dx + xy as f64).min(-xy as f64 - dy);
-            let ed = (dx+xy as f64).max(-xy as f64 - dy);                /* approximate error distance */
-            let ed = ed+2.0*ed*cur*cur/(4.0*ed*ed+cur*cur); // was u8 / f64, did that lose fraction?
-            let pixel = 255;//(ed*((err as f64 - dx - dy - xy as f64).abs())) as u8;
-            set_pixel(screen, a.0 as usize, a.1 as usize, &Color::new(pixel, pixel, pixel));          /* plot curve */
-            if a.0 == c.0 && a.1 == c.1 {break};/* last pixel -> curve finished */
-            b.0 = a.0; cur = dx-err as f64; b.1 = if ((2*err) as f64+ dy) < 0.0 {1} else {0};
-            if (2*err) as f64 +dx > 0.0 {                                    /* x step */
-                let pixel = 255;//(ed*(err as f64-dy).abs()) as u8;
-                if err as f64-dy < ed { set_pixel(screen, a.0 as usize,(a.1+sy) as usize, &Color::new(pixel,pixel,pixel)) };
-                dy += yy as f64;
-                a.0 += sx; dx -= xy as f64; err += dy as i64;
-            }
-            if b.1 != 0 {                                              /* y step */
-                if cur < ed {
-                    let pixel = 255;//(ed*cur.abs()) as u8;
-                    set_pixel(screen, (b.0+sx) as usize, a.1 as usize, &Color::new(pixel,pixel,pixel));
-                };
-                dx += xx as f64;
-                a.1 += sy; dy -= xy as f64; err += dx as i64; 
-            }
-
-            if dy < dx {
-                break;
-            }
-        }          /* gradient negates -> close curves */
-    }
-    line(screen, (a.0 as i32, a.1 as i32), (c.0 as i32, c.1 as i32), &Color::new(255,255,255));              /* plot remaining needle to end */
-}
-
