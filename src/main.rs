@@ -71,70 +71,11 @@ fn do_game() -> Result<(), String> {
         height: HEIGHT as usize,
     };
     
-    // Define our cube mesh
-
-    // vert buffer
-    let verts = vec!(
-        Vec4f::new(-1.0, -1.0, -1.0, 1.0),
-        Vec4f::new(-1.0,  1.0, -1.0, 1.0),
-        Vec4f::new( 1.0,  1.0, -1.0, 1.0),
-        Vec4f::new( 1.0, -1.0, -1.0, 1.0),
-        Vec4f::new(-1.0, -1.0,  1.0, 1.0),
-        Vec4f::new(-1.0,  1.0,  1.0, 1.0),
-        Vec4f::new( 1.0,  1.0,  1.0, 1.0),
-        Vec4f::new( 1.0, -1.0,  1.0, 1.0));
-
-    // index buffer
-    let tris = vec!(
-        // front
-        0, 1, 2, 
-        0, 2, 3,
-
-        // back
-        6, 5, 4, 
-        7, 6, 4,
-
-        // left
-        4, 5, 1, 
-        4, 1, 0,
-
-        // right
-        3, 2, 6, 
-        3, 6, 7,
-        
-        // top
-        1, 5, 6, 
-        1, 6, 2,
-
-        // bottom
-        7, 4, 0, 
-        3, 7, 0);
-
-     let uvs = vec!(
-        // front
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 1.0), Vec2f::new(1.0, 1.0), 
-        Vec2f::new(0.0, 0.0), Vec2f::new(1.0, 1.0), Vec2f::new(1.0, 0.0),
-
-        // back
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), 
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0),
-
-        // left
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), 
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0),
-
-        // right
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), 
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0),
-        
-        // top
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), 
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0),
-
-        // bottom
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), 
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0),
-     );
+    // Load our cube mesh
+    let cube = create_cube();
+        let verts = cube.verts;
+        let tris = cube.tris;
+        let uvs = cube.uvs;
 
     // Camera projection matrix
     let near: f32 = 0.1;

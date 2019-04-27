@@ -41,6 +41,22 @@ impl Color {
     }
 }
 
+pub struct Mesh {
+    pub verts: Vec<Vec4f>,
+    pub tris: Vec<usize>,
+    pub uvs: Vec<Vec2f>,
+}
+
+impl Mesh {
+    pub fn new(verts: Vec<Vec4f>, tris: Vec<usize>, uvs: Vec<Vec2f>) -> Mesh {
+        Mesh {
+            verts: verts,
+            tris: tris,
+            uvs: uvs,
+        }
+    }
+}
+
 // Set an individual pixel's RGB color
 // Todo: investigate access patterns, cache coherence. Using a space-
 // filling curve memory layout might improve drawing to smaller areas.
