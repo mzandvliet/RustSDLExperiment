@@ -4,6 +4,9 @@
     - Create types for easier manipulation of screen points
 */
 
+extern crate float_cmp;
+use float_cmp::{Ulps, ApproxEq};
+
 use crate::linalg::*;
 
 pub struct Screen {
@@ -257,15 +260,35 @@ pub fn triangle_textured(
             let pix_camspace = to_camspace(&(x as i32, y as i32), &screen_dims);
 
             let area = signed_area(&a, &b, &c);
-            let w_c = signed_area(&a, &b, &pix_camspace) / area;
             let w_a = signed_area(&b, &c, &pix_camspace) / area;
             let w_b = signed_area(&c, &a, &pix_camspace) / area;
+            let w_c = signed_area(&a, &b, &pix_camspace) / area;
+
+            let edge_0 = *c - *a;
+            let edge_1 = *a - *c;
+            let edge_2 = *b - *a;
 
             let mut inside: bool = true;
 
-            inside &= w_c > 0.0;
-            inside &= w_a > 0.0;
-            inside &= w_b > 0.0;
+            // crappy implementation of top-left rule
+            // performance is terrible
+            // working with float approx this way feels nasty (use fixed?)
+            // not having ternary statements makes this code lengthy
+            if approx_eq(w_a, 0.0) {
+                inside &= (approx_eq(edge_0.y, 0.0) && edge_0.x > 0.0) || edge_0.y > 0.0;
+            } else {
+                inside &= w_a > 0.0;
+            }
+            if approx_eq(w_b, 0.0) {
+                inside &= (approx_eq(edge_1.y, 0.0) && edge_1.x > 0.0) || edge_1.y > 0.0;
+            } else {
+                inside &= w_b > 0.0;
+            }
+            if approx_eq(w_c, 0.0) {
+                inside &= (approx_eq(edge_2.y, 0.0) && edge_2.x > 0.0) || edge_2.y > 0.0;
+            } else {
+                inside &= w_c > 0.0;
+            }
 
             if inside {
                 let uv = *a_uv * w_a + *b_uv * w_b + *c_uv * w_c;
@@ -288,6 +311,10 @@ pub fn triangle_textured(
             }
         }
     }
+}
+
+fn approx_eq(a: f32, b: f32) -> bool {
+    a.approx_eq(&b, 2.0 * ::std::f32::EPSILON, 2)
 }
 
 fn to_pixelspace(point: &Vec2f, screen_dims: &(i32, i32)) -> (i32,i32) {
@@ -374,5 +401,21 @@ pub fn clear(screen: &mut Screen) {
             screen.buffer[offset +1] = 0;
             screen.buffer[offset +2] = 0;
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cam_pixel_space_conversion() {
+        let screen_dims = (400, 300);
+        let cam_space = Vec2f::new(0.65, 0.45);
+        let pix_space = to_pixelspace(&cam_space, &screen_dims);
+        let cam_space_b = to_camspace(&pix_space, &screen_dims);
+
+        assert_eq!(cam_space, cam_space_b);
     }
 }
