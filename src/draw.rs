@@ -260,12 +260,6 @@ pub fn triangle_textured(
             let w_c = signed_area(&a, &b, &pix_camspace) / area;
             let w_a = signed_area(&b, &c, &pix_camspace) / area;
             let w_b = signed_area(&c, &a, &pix_camspace) / area;
-            // Bug: these signed areas sometimes still go negative, so
-            // can't directly use them for interpolating vertex data yet
-            // Could it be half-pixel offsets?
-            // Do they also sometimes go larger than 1.0?
-
-            // println!("{}, {}, {}", w0, w1, w2);
 
             let mut inside: bool = true;
 
@@ -275,15 +269,22 @@ pub fn triangle_textured(
 
             if inside {
                 let uv = *a_uv * w_a + *b_uv * w_b + *c_uv * w_c;
-                let uv_scr = ((uv.x * 64.0) as usize, ((1.0 - uv.y) * 64.0) as usize);
-                let albedo = tex[uv_scr.0 * 64 + uv_scr.1]; // bug: index can go out of bounds here, due to negative signed areas
-                let brightness = 0.1 + 0.9 * l_dot_n;
-                let shaded_color = Color::new(
-                    (albedo.r as f32 * brightness) as u8,
-                    (albedo.g as f32 * brightness) as u8,
-                    (albedo.b as f32 * brightness) as u8);
+                let uv_scr = ((uv.x * 63.999) as usize, ((1.0 - uv.y) * 63.999) as usize);
 
-                set_pixel(screen, x as usize, y as usize, &shaded_color);
+                if uv_scr.0 > 63 || uv_scr.1 > 63 {
+                    println!("uv: {:?},", uv);
+                    println!("a {:?}, b {:?}, c {:?}, p {:?}", a, b, c, pix_camspace);
+                    println!("area {}, wa {}, wb {}, wc {}", area, w_a, w_b, w_c);
+                } else {
+                    let albedo = tex[uv_scr.0 * 64 + uv_scr.1];
+                    let brightness = 0.1 + 0.9 * l_dot_n;
+                    let shaded_color = Color::new(
+                        (albedo.r as f32 * brightness) as u8,
+                        (albedo.g as f32 * brightness) as u8,
+                        (albedo.b as f32 * brightness) as u8);
+
+                    set_pixel(screen, x as usize, y as usize, &shaded_color);
+                }
             }
         }
     }
