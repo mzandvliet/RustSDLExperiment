@@ -72,10 +72,15 @@ fn do_game() -> Result<(), String> {
     };
     
     // Load our cube mesh
-    let cube = create_cube();
-        let verts = cube.verts;
-        let tris = cube.tris;
-        let uvs = cube.uvs;
+    let mesh = create_cube();
+    let verts = mesh.verts;
+    let tris = mesh.tris;
+    let uvs = mesh.uvs;
+
+    // let mesh = create_test_triangle();
+    // let verts = mesh.verts;
+    // let tris = mesh.tris;
+    // let uvs = mesh.uvs;
 
     // Camera projection matrix
     let near: f32 = 0.1;
@@ -123,15 +128,16 @@ fn do_game() -> Result<(), String> {
         // Let's draw our cube
 
         // rotate and translate it in world space
-        // let tri_mat = 
-        //     Mat4x4f::translation(0.0, f32::sin(time * 1.0) * 1.0, 0.0) *
-        //     Mat4x4f::rotation_y(f32::sin(time * 3.0) * 1.0) *
-        //     Mat4x4f::rotation_x(f32::sin(time * 2.0) * 0.5);
-        let tri_mat = Mat4x4f::identity();
+        let tri_mat = 
+            Mat4x4f::translation(0.0, f32::sin(time * 1.0) * 1.0, 0.0) *
+            Mat4x4f::rotation_y(time * 1.0) *
+            Mat4x4f::rotation_x(f32::sin(time * 2.0) * 0.5);
+        // let tri_mat = Mat4x4f::identity();
         
         // draw all tris in sequence
         let num_tris = tris.len() / 3;
-        for i in 0..num_tris {
+        let i = 1;
+        // for i in 0..num_tris {
             draw::triangle(
                 &verts[tris[i*3 + 0]],
                 &verts[tris[i*3 + 1]],
@@ -144,7 +150,7 @@ fn do_game() -> Result<(), String> {
                 &cam_mat_inverse,
                 &proj_mat,
                 &mut screen);
-        }
+        // }
 
         // Copy screenbuffer to texture
         texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
@@ -174,47 +180,47 @@ fn do_game() -> Result<(), String> {
     and triangles to the screen bounds...
 */
 
-fn is_line_visible(a: (i32, i32), b: (i32, i32), screen_dims: (i32, i32)) -> bool {
-    is_point_visible(a, screen_dims) || is_point_visible(b, screen_dims)
-}
+// fn is_line_visible(a: (i32, i32), b: (i32, i32), screen_dims: (i32, i32)) -> bool {
+//     is_point_visible(a, screen_dims) || is_point_visible(b, screen_dims)
+// }
 
-fn is_point_visible(p: (i32, i32), screen_dims: (i32, i32)) -> bool {
-    p.0 >= 0 && p.0 < screen_dims.0 &&
-    p.1 >= 0 && p.1 < screen_dims.1
-}
+// fn is_point_visible(p: (i32, i32), screen_dims: (i32, i32)) -> bool {
+//     p.0 >= 0 && p.0 < screen_dims.0 &&
+//     p.1 >= 0 && p.1 < screen_dims.1
+// }
 
-fn clip_line(a: (i32, i32), b: (i32, i32), s: (i32, i32)) -> ((i32,i32),(i32,i32)) {
-    // let bot_intersect = intersect_line((a, b), 0, 0);
-    // if bot_intersect.0 >= 0 && bot_intersect.1 < s.1 {
-        // Wait, now I still don't know whether a, b, or both points should be clipped
-        // Maybe I don't need to know...
-    // }
+// fn clip_line(a: (i32, i32), b: (i32, i32), s: (i32, i32)) -> ((i32,i32),(i32,i32)) {
+//     // let bot_intersect = intersect_line((a, b), 0, 0);
+//     // if bot_intersect.0 >= 0 && bot_intersect.1 < s.1 {
+//         // Wait, now I still don't know whether a, b, or both points should be clipped
+//         // Maybe I don't need to know...
+//     // }
 
-    (a, b)
-}
+//     (a, b)
+// }
 
-fn intersect_line(a: ((i32,i32),(i32,i32)), slope: i32, inter: i32) -> (i32, i32) {
-    let a_rr = slope_intercept(a);
+// fn intersect_line(a: ((i32,i32),(i32,i32)), slope: i32, inter: i32) -> (i32, i32) {
+//     let a_rr = slope_intercept(a);
 
-    let x = intersect(a_rr.0, a_rr.1, slope, inter);
-    (x, a_rr.0 * x + a_rr.1)
-}
+//     let x = intersect(a_rr.0, a_rr.1, slope, inter);
+//     (x, a_rr.0 * x + a_rr.1)
+// }
 
-fn intersect_lines(a: ((i32,i32),(i32,i32)), b: ((i32,i32),(i32,i32))) -> (i32, i32) {
-    let a_rr = slope_intercept(a);
-    let b_rr = slope_intercept(b);
+// fn intersect_lines(a: ((i32,i32),(i32,i32)), b: ((i32,i32),(i32,i32))) -> (i32, i32) {
+//     let a_rr = slope_intercept(a);
+//     let b_rr = slope_intercept(b);
 
-    let x = intersect(a_rr.0, a_rr.1, b_rr.0, b_rr.1);
-    (x, a_rr.0 * x + a_rr.1)
-}
+//     let x = intersect(a_rr.0, a_rr.1, b_rr.0, b_rr.1);
+//     (x, a_rr.0 * x + a_rr.1)
+// }
 
-fn slope_intercept(a: ((i32,i32),(i32,i32))) -> (i32, i32) {
-    let slope = ((a.0).1 - (a.1).1) / ((a.0).0 - (a.1).0);
-    let inter = (a.0).1 - slope * (a.0).0;
-    (slope, inter)
-}
+// fn slope_intercept(a: ((i32,i32),(i32,i32))) -> (i32, i32) {
+//     let slope = ((a.0).1 - (a.1).1) / ((a.0).0 - (a.1).0);
+//     let inter = (a.0).1 - slope * (a.0).0;
+//     (slope, inter)
+// }
 
-fn intersect(a: i32, b: i32, c: i32, d: i32) -> i32 {
-    (d - b) / (a - c) // Todo: precision, man. Rounding.
-}
+// fn intersect(a: i32, b: i32, c: i32, d: i32) -> i32 {
+//     (d - b) / (a - c) // Todo: precision, man. Rounding.
+// }
 

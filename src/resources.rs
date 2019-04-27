@@ -22,6 +22,27 @@ pub fn load_texture(path: String) -> Result<Vec<Color>,String> {
     Ok(tex)
 }
 
+pub fn create_test_triangle() -> Mesh {
+    // vert buffer
+    let verts = vec!(
+        Vec4f::new(-1.0, -1.0, -1.0, 1.0),
+        Vec4f::new(-1.0,  1.0, -1.0, 1.0),
+        Vec4f::new( 1.0,  1.0, -1.0, 1.0)
+    );
+
+    // index buffer
+    let tris = vec!(
+        0, 1, 2
+    );
+
+    let uvs = vec!(
+        // front
+        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 1.0), Vec2f::new(1.0, 1.0), 
+    );
+
+    Mesh::new(verts, tris, uvs)
+}
+
 pub fn create_cube() -> Mesh {
     // vert buffer
     let verts = vec!(
@@ -32,7 +53,8 @@ pub fn create_cube() -> Mesh {
         Vec4f::new(-1.0, -1.0,  1.0, 1.0),
         Vec4f::new(-1.0,  1.0,  1.0, 1.0),
         Vec4f::new( 1.0,  1.0,  1.0, 1.0),
-        Vec4f::new( 1.0, -1.0,  1.0, 1.0));
+        Vec4f::new( 1.0, -1.0,  1.0, 1.0)
+    );
 
     // index buffer
     let tris = vec!(
@@ -58,7 +80,8 @@ pub fn create_cube() -> Mesh {
 
         // bottom
         7, 4, 0, 
-        3, 7, 0);
+        3, 7, 0
+    );
 
     let uvs = vec!(
         // front

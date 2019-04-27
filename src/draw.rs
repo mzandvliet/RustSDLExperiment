@@ -28,6 +28,14 @@ impl Color {
         }
     }
 
+    pub fn white() -> Color {
+        Color::new(255, 255, 255)
+    }
+
+    pub fn black() -> Color {
+        Color::new(0, 0, 0)
+    }
+
     pub fn red() -> Color {
         Color::new(255, 0, 0)
     }
@@ -67,7 +75,7 @@ pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: &Color) {
     // what we need is line culling and clipping stages before we draw
     // assert!(x < screen.width);
     // assert!(y < screen.height);
-    // if x < screen.width && y < screen.height {
+    if x < screen.width && y < screen.height {
         let pitch = screen.width * 3;
         let offset = y * pitch + x * 3;
 
@@ -75,7 +83,7 @@ pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: &Color) {
         screen.buffer[offset] = c.r;
         screen.buffer[offset+1] = c.g;
         screen.buffer[offset+2] = c.b;
-    // }
+    }
 }
 
 // Bresenham line drawing algorithm, as per this wonderful paper:
@@ -249,9 +257,9 @@ pub fn triangle_textured(
             let pix_camspace = to_camspace(&(x as i32, y as i32), &screen_dims);
 
             let area = signed_area(&a, &b, &c);
-            let w_c = f32::min(0.95, f32::max(0.0, signed_area(&a, &b, &pix_camspace) / area));
-            let w_a = f32::min(0.95, f32::max(0.0, signed_area(&b, &c, &pix_camspace) / area));
-            let w_b = f32::min(0.95, f32::max(0.0, signed_area(&c, &a, &pix_camspace) / area));
+            let w_c = signed_area(&a, &b, &pix_camspace) / area;
+            let w_a = signed_area(&b, &c, &pix_camspace) / area;
+            let w_b = signed_area(&c, &a, &pix_camspace) / area;
             // Bug: these signed areas sometimes still go negative, so
             // can't directly use them for interpolating vertex data yet
             // Could it be half-pixel offsets?

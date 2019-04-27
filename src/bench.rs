@@ -8,21 +8,6 @@ mod tests {
     use crate::draw::*;
     use crate::resources::*;
 
-    // example benchmark
-    #[bench]
-    fn bench_pow(b: &mut Bencher) {
-        // setup
-        let x: f64 = 200.0;
-        let y: f64 = 301.0;
-
-        b.iter(|| {
-            // inner closure performs actual tests
-            for i in 1..100 {
-                black_box(x.powf(y).powf(x));
-            }
-        });
-    }
-
     #[bench]
     fn bench_draw_line(b: &mut Bencher) {
         const WIDTH: u32 = 400 * 4;
@@ -79,7 +64,7 @@ mod tests {
         let uvs = cube.uvs;
 
         b.iter(|| {
-            for i in 1..10 {
+            for j in 1..10 {
                 let num_tris = tris.len() / 3;
                 for i in 0..num_tris {
                     triangle(
