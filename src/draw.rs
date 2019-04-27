@@ -16,6 +16,21 @@ pub struct Screen {
 }
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
+pub struct Vec2i {
+    x: i32,
+    y: i32
+}
+
+impl Vec2i {
+    pub fn new(x: i32, y: i32) -> Vec2i {
+        Vec2i {
+            x: x,
+            y: y,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
@@ -49,6 +64,15 @@ impl Color {
 
     pub fn blue() -> Color {
         Color::new(0, 0, 255)
+    }
+
+    // Blend 3 colors using barycentric coordinates
+    pub fn blend(a: Color, b: Color, c: Color, w0: f32, w1: f32, w2: f32) -> Color {
+        Color::new(
+            ((a.r as f32 * w0) + (b.r as f32 * w1) + (c.r as f32 * w2)) as u8,
+            ((a.g as f32 * w0) + (b.g as f32 * w1) + (c.g as f32 * w2)) as u8,
+            ((a.b as f32 * w0) + (b.b as f32 * w1) + (c.b as f32 * w2)) as u8,
+        )
     }
 }
 
@@ -93,12 +117,12 @@ pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: &Color) {
 // http://members.chello.at/~easyfilter/Bresenham.pdf
 // Todo: assume points are valid screen coords, and don't do any
 // bounds checks. Perform rigorous clipping earlier in code path.
-pub fn line(screen: &mut Screen, a: (i32, i32), b: (i32, i32), color: &Color) {
-    let mut x0: i32 = a.0;
-    let mut y0: i32 = a.1;
+pub fn line(screen: &mut Screen, a: Vec2i, b: Vec2i, color: &Color) {
+    let mut x0: i32 = a.x;
+    let mut y0: i32 = a.y;
 
-    let x1: i32 = b.0;
-    let y1: i32 = b.1;
+    let x1: i32 = b.x;
+    let y1: i32 = b.y;
 
     let dx: i32 =  (x1-x0).abs();
     let sx: i32 = if x0<x1 { 1 } else { -1 };
@@ -164,73 +188,32 @@ pub fn triangle(
 
         // println!("{:?}, {:?}, {:?}", p1s, p2s, p3s);
 
-        // let shaded_color = draw::Color::new((255.0 * l_dot_n) as u8, (100.0 * l_dot_n) as u8, (150.0 * l_dot_n) as u8);
-        // let wire_color = draw::Color::new(255, 255, 255);
-        // draw::triangle_solid(screen, &p1, &p2, &p3, &shaded_color);
-        // draw::triangle_wired(screen, &p1, &p2, &p3, &wire_color);
-
         triangle_textured(
             screen,
             &p1, &p2, &p3,
             uv1, uv2, uv3,
             tex,
             l_dot_n);
+
+        // Wireframe
+        // let wire_color = draw::Color::new(255, 255, 255);
+        // draw::triangle_wired(screen, &p1, &p2, &p3, &wire_color);
     }
 }
 
 pub fn triangle_wired(screen: &mut Screen, a: &Vec2f, b: &Vec2f, c: &Vec2f, color: &Color) {
-    let screen_dims = (screen.width as i32, screen.height as i32);
+    let screen_dims = Vec2i::new(screen.width as i32, screen.height as i32);
     let a = to_pixelspace(&a, &screen_dims);
     let b = to_pixelspace(&b, &screen_dims);
     let c = to_pixelspace(&c, &screen_dims);
 
-    let a = clip_point((a.0, a.1), screen_dims);
-    let b = clip_point((b.0, b.1), screen_dims);
-    let c = clip_point((c.0, c.1), screen_dims);
+    let a = clip_point(&a, &screen_dims);
+    let b = clip_point(&b, &screen_dims);
+    let c = clip_point(&c, &screen_dims);
 
     line(screen, a, b, color);
     line(screen, b, c, color);
     line(screen, c, a, color);
-}
-
-pub fn triangle_solid(screen: &mut Screen, a: &Vec2f, b: &Vec2f, c: &Vec2f, color: &Color) {
-    let screen_dims = (screen.width as i32, screen.height as i32);
-
-    // We generate a screen-pixel-space bounding box around the triangle
-    // to limit the region of pixels tested against the triangle
-    let a_s = to_pixelspace(a, &screen_dims);
-    let b_s = to_pixelspace(b, &screen_dims);
-    let c_s = to_pixelspace(c, &screen_dims);
-
-    let a_s = clip_point((a_s.0, a_s.1), screen_dims);
-    let b_s = clip_point((b_s.0, b_s.1), screen_dims);
-    let c_s = clip_point((c_s.0, c_s.1), screen_dims);
-
-    let aabb = get_aabb(vec!(a_s,b_s,c_s), (screen.width as i32, screen.height as i32));
-
-    // Loop over bounded pixels
-    for x in (aabb.0).0..(aabb.1).0 {
-        for y in (aabb.0).1..(aabb.1).1 {
-            // Transform pixel position into camera space. If inside cam-space triangle, draw it.
-            let pix_camspace = to_camspace(&(x as i32, y as i32), &screen_dims);
-
-            let area = signed_area(&a, &b, &c);
-            let w0 = signed_area(&a, &b, &pix_camspace) / area;
-            let w1 = signed_area(&b, &c, &pix_camspace) / area;
-            let w2 = signed_area(&c, &a, &pix_camspace) / area;
-
-            let mut inside: bool = true;
-
-            inside &= w0 > 0.0;
-            inside &= w1 > 0.0;
-            inside &= w2 > 0.0;
-
-            if inside {
-                let color = blend_color(Color::red(), Color::green(), Color::blue(), w0, w1, w2);
-                set_pixel(screen, x as usize, y as usize, &color);
-            }
-        }
-    }
 }
 
 pub fn triangle_textured(
@@ -239,7 +222,7 @@ pub fn triangle_textured(
     a_uv: &Vec2f, b_uv: &Vec2f, c_uv: &Vec2f,
     tex: &Vec<Color>,
     l_dot_n: f32) {
-    let screen_dims = (screen.width as i32, screen.height as i32);
+    let screen_dims = Vec2i::new(screen.width as i32, screen.height as i32);
 
     // We generate a screen-pixel-space bounding box around the triangle
     // to limit the region of pixels tested against the triangle
@@ -247,17 +230,17 @@ pub fn triangle_textured(
     let b_s = to_pixelspace(&b, &screen_dims);
     let c_s = to_pixelspace(&c, &screen_dims);
 
-    let a_s = clip_point((a_s.0, a_s.1), screen_dims);
-    let b_s = clip_point((b_s.0, b_s.1), screen_dims);
-    let c_s = clip_point((c_s.0, c_s.1), screen_dims);
+    let a_s = clip_point(&a_s, &screen_dims);
+    let b_s = clip_point(&b_s, &screen_dims);
+    let c_s = clip_point(&c_s, &screen_dims);
 
-    let aabb = get_aabb(vec!(a_s,b_s,c_s), (screen.width as i32, screen.height as i32));
+    let aabb = get_aabb(vec!(a_s,b_s,c_s), &screen_dims);
 
     // Loop over bounded pixels
-    for x in (aabb.0).0..(aabb.1).0 {
-        for y in (aabb.0).1..(aabb.1).1 {
+    for x in (aabb.0).x..(aabb.1).x {
+        for y in (aabb.0).y..(aabb.1).y {
             // Transform pixel position into camera space. If inside cam-space triangle, draw it.
-            let pix_camspace = to_camspace(&(x as i32, y as i32), &screen_dims);
+            let pix_camspace = to_camspace(&Vec2i::new(x,y), &screen_dims);
 
             let area = signed_area(&a, &b, &c);
             let w_a = signed_area(&b, &c, &pix_camspace) / area;
@@ -270,10 +253,16 @@ pub fn triangle_textured(
 
             let mut inside: bool = true;
 
-            // crappy implementation of top-left rule
-            // performance is terrible
-            // working with float approx this way feels nasty (use fixed?)
-            // not having ternary statements makes this code lengthy
+            /*
+            If all three edge tests are positive, or we're a pixel right
+            on the edge of a top-left triangle, then we rasterize
+
+            Note:
+            reference implementation, performance is terrible
+            working with float approx this way feels nasty (use fixed?)
+            not having ternary statements makes this code lengthy
+            */
+            
             if approx_eq(w_a, 0.0) {
                 inside &= (approx_eq(edge_0.y, 0.0) && edge_0.x > 0.0) || edge_0.y > 0.0;
             } else {
@@ -291,23 +280,24 @@ pub fn triangle_textured(
             }
 
             if inside {
+                // interpolate UV values with barycentric coordinates
                 let uv = *a_uv * w_a + *b_uv * w_b + *c_uv * w_c;
+
+                // transform UV values to texture space (taking care not to read out of bounds)
+                // todo: get texture dimensions from texture, instead of hardcoding
                 let uv_scr = ((uv.x * 63.999) as usize, ((1.0 - uv.y) * 63.999) as usize);
 
-                if uv_scr.0 > 63 || uv_scr.1 > 63 {
-                    println!("uv: {:?},", uv);
-                    println!("a {:?}, b {:?}, c {:?}, p {:?}", a, b, c, pix_camspace);
-                    println!("area {}, wa {}, wb {}, wc {}", area, w_a, w_b, w_c);
-                } else {
-                    let albedo = tex[uv_scr.0 * 64 + uv_scr.1];
-                    let brightness = 0.1 + 0.9 * l_dot_n;
-                    let shaded_color = Color::new(
-                        (albedo.r as f32 * brightness) as u8,
-                        (albedo.g as f32 * brightness) as u8,
-                        (albedo.b as f32 * brightness) as u8);
+                // read from texture, without filtering
+                let albedo = tex[uv_scr.0 * 64 + uv_scr.1];
 
-                    set_pixel(screen, x as usize, y as usize, &shaded_color);
-                }
+                // shade pixel
+                let brightness = 0.1 + 0.9 * l_dot_n;
+                let shaded_color = Color::new(
+                    (albedo.r as f32 * brightness) as u8,
+                    (albedo.g as f32 * brightness) as u8,
+                    (albedo.b as f32 * brightness) as u8);
+
+                set_pixel(screen, x as usize, y as usize, &shaded_color);
             }
         }
     }
@@ -317,15 +307,16 @@ fn approx_eq(a: f32, b: f32) -> bool {
     a.approx_eq(&b, 2.0 * ::std::f32::EPSILON, 2)
 }
 
-fn to_pixelspace(point: &Vec2f, screen_dims: &(i32, i32)) -> (i32,i32) {
-    (screen_dims.0 / 2 + (point.x * screen_dims.0 as f32) as i32,
-     screen_dims.1 / 2 - (point.y * screen_dims.1 as f32) as i32) // Note, we're inverting y here
+fn to_pixelspace(point: &Vec2f, screen_dims: &Vec2i) -> Vec2i {
+    Vec2i::new(
+        screen_dims.x / 2 + (point.x * screen_dims.x as f32) as i32,
+        screen_dims.y / 2 - (point.y * screen_dims.y as f32) as i32) // Note, we're inverting y here
 }
 
-fn to_camspace(screen_point: &(i32,i32), screen_dims: &(i32,i32)) -> Vec2f {
+fn to_camspace(screen_point: &Vec2i, screen_dims: &Vec2i) -> Vec2f {
     Vec2f {
-        x: (screen_point.0 - screen_dims.0 / 2) as f32 / screen_dims.0 as f32,
-        y: (screen_dims.1 - screen_point.1 - screen_dims.1 / 2) as f32 / screen_dims.1 as f32, // Note, we're inverting y here
+        x: (screen_point.x - screen_dims.x / 2) as f32 / screen_dims.x as f32,
+        y: (screen_dims.y - screen_point.y - screen_dims.y / 2) as f32 / screen_dims.y as f32, // Note, we're inverting y here
     }
 }
 
@@ -335,39 +326,36 @@ If partially on screen, clip the line properly, without changing its geometry
 
 For now, I'm just nudging the points into valid screen bounds
 */
-fn clip_point(point: (i32, i32), screen_dims: (i32, i32)) -> (i32, i32) {
-    (i32::min(i32::max(0, point.0), screen_dims.0-1),
-     i32::min(i32::max(0, point.1), screen_dims.1-1))
+fn clip_point(point: &Vec2i, screen_dims: &Vec2i) -> Vec2i {
+    Vec2i::new(
+        i32::min(i32::max(0, point.x), screen_dims.x-1),
+        i32::min(i32::max(0, point.y), screen_dims.y-1))
 }
 
-fn get_aabb(points: Vec<(i32,i32)>, screen_dims: (i32, i32)) -> ((i32,i32), (i32,i32)){
-    let mut x_min: i32 = screen_dims.0;
-    let mut y_min: i32 = screen_dims.1;
+// Calculate a screen-space bounding box for a given polygon/triangle
+fn get_aabb(points: Vec<Vec2i>, screen_dims: &Vec2i) -> (Vec2i, Vec2i){
+    let mut x_min: i32 = screen_dims.x;
+    let mut y_min: i32 = screen_dims.y;
     let mut x_max: i32 = 0;
     let mut y_max: i32 = 0;
 
     for p in points.iter() {
-        if (p.0) < x_min {x_min = p.0;}
-        if (p.1) < y_min {y_min = p.1;}
-        if (p.0) > x_max {x_max = p.0;}
-        if (p.1) > y_max {y_max = p.1;}
+        if (p.x) < x_min {x_min = p.x;}
+        if (p.y) < y_min {y_min = p.y;}
+        if (p.x) > x_max {x_max = p.x;}
+        if (p.y) > y_max {y_max = p.y;}
     }
 
     // bounding box min/max points, padded with extra pixel
     // Todo: if we did the bounding box in camera space, we wouldn't need to pad like this
-    ((x_min-1, y_min-1), (x_max+1, y_max+1)) 
+    (
+        Vec2i::new(x_min-1, y_min-1),
+        Vec2i::new(x_max+1, y_max+1)
+    ) 
 }
 
 fn signed_area(a: &Vec2f, b: &Vec2f, p: &Vec2f) -> f32 {
     (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)
-}
-
-fn blend_color(a: Color, b: Color, c: Color, w0: f32, w1: f32, w2: f32) -> Color {
-    Color::new(
-        ((a.r as f32 * w0) + (b.r as f32 * w1) + (c.r as f32 * w2)) as u8,
-        ((a.g as f32 * w0) + (b.g as f32 * w1) + (c.g as f32 * w2)) as u8,
-        ((a.b as f32 * w0) + (b.b as f32 * w1) + (c.b as f32 * w2)) as u8,
-    )
 }
 
 // Bresenham-style circle drawing algorithm, as per this wonderful paper:
@@ -404,6 +392,57 @@ pub fn clear(screen: &mut Screen) {
     }
 }
 
+/*
+    Todo: the below are unused as of now. Still need to clip lines
+    and triangles to the screen bounds...
+
+    And use the Vec2i type for them, of course
+*/
+
+// fn is_line_visible(a: (i32, i32), b: (i32, i32), screen_dims: (i32, i32)) -> bool {
+//     is_point_visible(a, screen_dims) || is_point_visible(b, screen_dims)
+// }
+
+// fn is_point_visible(p: (i32, i32), screen_dims: (i32, i32)) -> bool {
+//     p.0 >= 0 && p.0 < screen_dims.0 &&
+//     p.1 >= 0 && p.1 < screen_dims.1
+// }
+
+// fn clip_line(a: (i32, i32), b: (i32, i32), s: (i32, i32)) -> ((i32,i32),(i32,i32)) {
+//     // let bot_intersect = intersect_line((a, b), 0, 0);
+//     // if bot_intersect.0 >= 0 && bot_intersect.1 < s.1 {
+//         // Wait, now I still don't know whether a, b, or both points should be clipped
+//         // Maybe I don't need to know...
+//     // }
+
+//     (a, b)
+// }
+
+// fn intersect_line(a: ((i32,i32),(i32,i32)), slope: i32, inter: i32) -> (i32, i32) {
+//     let a_rr = slope_intercept(a);
+
+//     let x = intersect(a_rr.0, a_rr.1, slope, inter);
+//     (x, a_rr.0 * x + a_rr.1)
+// }
+
+// fn intersect_lines(a: ((i32,i32),(i32,i32)), b: ((i32,i32),(i32,i32))) -> (i32, i32) {
+//     let a_rr = slope_intercept(a);
+//     let b_rr = slope_intercept(b);
+
+//     let x = intersect(a_rr.0, a_rr.1, b_rr.0, b_rr.1);
+//     (x, a_rr.0 * x + a_rr.1)
+// }
+
+// fn slope_intercept(a: ((i32,i32),(i32,i32))) -> (i32, i32) {
+//     let slope = ((a.0).1 - (a.1).1) / ((a.0).0 - (a.1).0);
+//     let inter = (a.0).1 - slope * (a.0).0;
+//     (slope, inter)
+// }
+
+// fn intersect(a: i32, b: i32, c: i32, d: i32) -> i32 {
+//     (d - b) / (a - c) // Todo: precision, man. Rounding.
+// }
+
 
 #[cfg(test)]
 mod tests {
@@ -411,7 +450,7 @@ mod tests {
 
     #[test]
     fn test_cam_pixel_space_conversion() {
-        let screen_dims = (400, 300);
+        let screen_dims = Vec2i::new(400, 300);
         let cam_space = Vec2f::new(0.65, 0.45);
         let pix_space = to_pixelspace(&cam_space, &screen_dims);
         let cam_space_b = to_camspace(&pix_space, &screen_dims);

@@ -25,7 +25,7 @@ mod tests {
 
         b.iter(|| {
             for i in 1..1000 {
-                line(&mut screen, (0,0), (400,300), &line_color);
+                line(&mut screen, Vec2i::new(0,0), Vec2i::new(400,300), &line_color);
                 black_box(0);
             }
         });

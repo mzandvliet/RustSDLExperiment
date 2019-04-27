@@ -1,4 +1,4 @@
-#![feature(test)]
+#![feature(test)] // for benchmark feature
 
 extern crate sdl2;
 extern crate gl;
@@ -173,53 +173,3 @@ fn do_game() -> Result<(), String> {
 
     Ok(())
 }
-
-/*
-    Todo: the below are unused as of now. Still need to clip lines
-    and triangles to the screen bounds...
-*/
-
-// fn is_line_visible(a: (i32, i32), b: (i32, i32), screen_dims: (i32, i32)) -> bool {
-//     is_point_visible(a, screen_dims) || is_point_visible(b, screen_dims)
-// }
-
-// fn is_point_visible(p: (i32, i32), screen_dims: (i32, i32)) -> bool {
-//     p.0 >= 0 && p.0 < screen_dims.0 &&
-//     p.1 >= 0 && p.1 < screen_dims.1
-// }
-
-// fn clip_line(a: (i32, i32), b: (i32, i32), s: (i32, i32)) -> ((i32,i32),(i32,i32)) {
-//     // let bot_intersect = intersect_line((a, b), 0, 0);
-//     // if bot_intersect.0 >= 0 && bot_intersect.1 < s.1 {
-//         // Wait, now I still don't know whether a, b, or both points should be clipped
-//         // Maybe I don't need to know...
-//     // }
-
-//     (a, b)
-// }
-
-// fn intersect_line(a: ((i32,i32),(i32,i32)), slope: i32, inter: i32) -> (i32, i32) {
-//     let a_rr = slope_intercept(a);
-
-//     let x = intersect(a_rr.0, a_rr.1, slope, inter);
-//     (x, a_rr.0 * x + a_rr.1)
-// }
-
-// fn intersect_lines(a: ((i32,i32),(i32,i32)), b: ((i32,i32),(i32,i32))) -> (i32, i32) {
-//     let a_rr = slope_intercept(a);
-//     let b_rr = slope_intercept(b);
-
-//     let x = intersect(a_rr.0, a_rr.1, b_rr.0, b_rr.1);
-//     (x, a_rr.0 * x + a_rr.1)
-// }
-
-// fn slope_intercept(a: ((i32,i32),(i32,i32))) -> (i32, i32) {
-//     let slope = ((a.0).1 - (a.1).1) / ((a.0).0 - (a.1).0);
-//     let inter = (a.0).1 - slope * (a.0).0;
-//     (slope, inter)
-// }
-
-// fn intersect(a: i32, b: i32, c: i32, d: i32) -> i32 {
-//     (d - b) / (a - c) // Todo: precision, man. Rounding.
-// }
-
