@@ -133,8 +133,16 @@ impl Index<usize> for Vec2f {
     }
 }
 
+// Todo: could return a ref to same memory, really
+// Another example where reinterpret cast to const& could be good for perf
 impl From<&Vec4f> for Vec2f {
     fn from(item: &Vec4f) -> Self {
+        Vec2f::new(item.x, item.y)
+    }
+}
+
+impl From<&Vec3f> for Vec2f {
+    fn from(item: &Vec3f) -> Self {
         Vec2f::new(item.x, item.y)
     }
 }

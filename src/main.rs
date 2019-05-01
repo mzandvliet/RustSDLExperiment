@@ -131,7 +131,7 @@ fn do_game() -> Result<(), String> {
         let tri_mat = 
             Mat4x4f::translation(0.0, f32::sin(time * 1.0) * 1.0, 0.0) *
             Mat4x4f::rotation_y(f32::sin(time * 3.0) * 1.0) *
-            Mat4x4f::rotation_x(f32::sin(time * 2.0) * 0.5);
+            Mat4x4f::rotation_x(f32::sin(time * 1.333) * 1.0);
         // let tri_mat = Mat4x4f::identity();
         
         // draw all tris in sequence
