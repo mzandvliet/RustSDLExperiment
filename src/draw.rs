@@ -1,11 +1,27 @@
 /*
     Todo:
 
-    - Create types for easier manipulation of screen points
+    - Features
+        - Depth buffer for rendering multiple objects
+        - Clipping geometry to frustum
+        - Anti-aliasing by subdividing edge pixels
+        - Back-face culling by checking sign of cross product of edges
+
+    - Optimization
+        - Texture and screenbuffer access, as those are biggest bottlenecks
+            - Cache misses, I think
+            - Accessing by [RGBA] instead of [R], [G], [B] would cut down on total
+            accesses, though whether that helps with cache misses I don't know.
+            - Tiled rendering
+        - Block / tile rendering
+            - Test corners first. If all corners lie in triangle, inside of block does too
+                - large screen-space triangles benefit
+            - Tiles with morton-order indexing could have better cache behaviour
+        - Fixed point arithmetic
+
 */
 
 extern crate float_cmp;
-use float_cmp::{Ulps, ApproxEq};
 
 use crate::linalg::*;
 
@@ -100,17 +116,16 @@ pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: &Color) {
 
     // Todo: you don't want to be doing asserts this nested within core loops
     // what we need is line culling and clipping stages before we draw
-    // assert!(x < screen.width);
-    // assert!(y < screen.height);
-    if x < screen.width && y < screen.height {
-        let pitch = screen.width * 3;
-        let offset = y * pitch + x * 3;
+    assert!(x < screen.width);
+    assert!(y < screen.height);
 
-        // Todo: given that Rust does bounds checks, it *might* be faster to writing using (u8,u8,u8) or (u8,u8,u8,u8) tuples
-        screen.buffer[offset] = c.r;
-        screen.buffer[offset+1] = c.g;
-        screen.buffer[offset+2] = c.b;
-    }
+    let pitch = screen.width * 3;
+    let offset = y * pitch + x * 3;
+
+    // Todo: given that Rust does bounds checks, it *might* be faster to writing using (u8,u8,u8) or (u8,u8,u8,u8) tuples
+    screen.buffer[offset] = c.r;
+    // screen.buffer[offset+1] = c.g;
+    // screen.buffer[offset+2] = c.b;
 }
 
 // Bresenham line drawing algorithm, as per this wonderful paper:
@@ -259,28 +274,11 @@ pub fn triangle_textured(
             /*
             If all three edge tests are positive, or we're a pixel right
             on the edge of a top-left triangle, then we rasterize
-
-            Note:
-            reference implementation, performance is terrible
-            working with float approx this way feels nasty (use fixed?)
-            not having ternary statements makes this code lengthy
             */
             
-            if approx_eq(w_a, 0.0) {
-                inside &= (approx_eq(edge_0.y, 0.0) && edge_0.x > 0.0) || edge_0.y > 0.0;
-            } else {
-                inside &= w_a > 0.0;
-            }
-            if approx_eq(w_b, 0.0) {
-                inside &= (approx_eq(edge_1.y, 0.0) && edge_1.x > 0.0) || edge_1.y > 0.0;
-            } else {
-                inside &= w_b > 0.0;
-            }
-            if approx_eq(w_c, 0.0) {
-                inside &= (approx_eq(edge_2.y, 0.0) && edge_2.x > 0.0) || edge_2.y > 0.0;
-            } else {
-                inside &= w_c > 0.0;
-            }
+            test_topleft(&edge_0, w_a, &mut inside);
+            test_topleft(&edge_1, w_b, &mut inside);
+            test_topleft(&edge_2, w_c, &mut inside);
 
             if inside {
                 // interpolate UV values with barycentric coordinates
@@ -302,7 +300,8 @@ pub fn triangle_textured(
                 let uv_scr = ((uv.x * 63.999) as usize, ((1.0 - uv.y) * 63.999) as usize);
 
                 // read from texture, without filtering
-                let albedo = tex[uv_scr.0 * 64 + uv_scr.1];
+                // let albedo = tex[uv_scr.0 * 64 + uv_scr.1];
+                let albedo = Color::blue();
 
                 // shade pixel
                 let brightness = 0.1 + 0.9 * l_dot_n;
@@ -315,6 +314,22 @@ pub fn triangle_textured(
             }
         }
     }
+}
+
+/*
+    Note:
+    reference implementation, performance is not great
+    working with float approx this way feels nasty (use fixed?)
+    not having ternary statements makes this code lengthy
+*/
+fn test_topleft(edge: &Vec4f, w: f32, inside: &mut bool) {
+     if approx_eq(w, 0.0) {
+            // If lying on an edge, are we a top-left?
+            *inside &= (approx_eq(edge.y, 0.0) && edge.x > 0.0) || edge.y > 0.0;
+        } else {
+            // If we're on the positive side of the half-plane defined by the edge
+            *inside &= w > 0.0;
+        }
 }
 
 fn approx_eq(a: f32, b: f32) -> bool {

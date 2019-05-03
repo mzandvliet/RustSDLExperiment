@@ -33,8 +33,8 @@ mod tests {
 
     #[bench]
     fn bench_draw_triangle_small_screen(b: &mut Bencher) {
-        const WIDTH: u32 = 400 / 8;
-        const HEIGHT: u32 = 300 / 8;
+        const WIDTH: u32 = 32;
+        const HEIGHT: u32 = 32;
         const SCREEN_BUFF_SIZE: usize = (WIDTH * HEIGHT * 3) as usize;
 
         let screen_buffer: Vec<u8> = vec![0; SCREEN_BUFF_SIZE];
