@@ -178,14 +178,19 @@ pub fn triangle(
         let p3 = *cam_inv * p3;
 
         // Projection
-        // Todo: make project matrix compatible with depth-correct interpolation
         let p1 = *cam_proj * p1;
         let p2 = *cam_proj * p2;
         let p3 = *cam_proj * p3;
         
-        let p1 = Vec4f::norm_by_w(&p1);
-        let p2 = Vec4f::norm_by_w(&p2);
-        let p3 = Vec4f::norm_by_w(&p3);
+        // Normalize x,y,z by w to get valid point
+        let mut p1 = Vec4f::norm_by_w(&p1);
+        let mut p2 = Vec4f::norm_by_w(&p2);
+        let mut p3 = Vec4f::norm_by_w(&p3);
+
+        // Store depth reciprocal in w for use in fragment stage
+        p1.w = 1.0 / p1.w;
+        p2.w = 1.0 / p2.w;
+        p3.w = 1.0 / p3.w;
 
         triangle_textured(
             screen,
@@ -281,14 +286,14 @@ pub fn triangle_textured(
                 // interpolate UV values with barycentric coordinates
 
                 let z = 1.0 / (
-                    (1.0 / a.w) * w_a +
-                    (1.0 / b.w) * w_b +
-                    (1.0 / c.w) * w_c);
+                    a.w * w_a +
+                    b.w * w_b +
+                    c.w * w_c);
 
                 let uv = 
-                    (*a_uv / a.w) * w_a +
-                    (*b_uv / b.w) * w_b +
-                    (*c_uv / c.w) * w_c;
+                    (*a_uv * a.w) * w_a +
+                    (*b_uv * b.w) * w_b +
+                    (*c_uv * c.w) * w_c;
 
                 let uv = uv * z;
 
@@ -313,7 +318,24 @@ pub fn triangle_textured(
 }
 
 fn approx_eq(a: f32, b: f32) -> bool {
-    a.approx_eq(&b, 2.0 * ::std::f32::EPSILON, 2)
+    /* 
+        Using library function that's fully compliant with floating point spec
+        and is correct for every possible combination of values.
+
+        This makes the function ***stupidly*** slow, adding whole miliseconds.
+    */
+    // a.approx_eq(&b, 2.0 * ::std::f32::EPSILON, 2)
+
+    /*
+        My much less correct implementation that still gets me results, at a
+        small fraction of the cost.
+    */
+    (a.abs() - b.abs()).abs() < std::f32::EPSILON
+
+    /*
+        Todo: This approx_eq test, as used to determine whether a pixel lies on
+        a triangle edge, is a prime candidate for fixed point logic.
+    */
 }
 
 fn to_pixelspace(point: &Vec4f, screen_dims: &Vec2i) -> Vec2i {
@@ -472,5 +494,15 @@ mod tests {
         let cam_space_b = to_camspace(&pix_space, &screen_dims);
 
         assert_eq!(cam_space, cam_space_b);
+    }
+
+    #[test]
+    fn test_approx_eq() {
+        for i in -32..32 {
+            let a = i as f32 + 0.0;
+            let b = i as f32 + 0.00000001;
+
+            assert!(approx_eq(a, b));
+        }
     }
 }
