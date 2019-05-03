@@ -89,24 +89,24 @@ pub fn create_cube() -> Mesh {
         Vec2f::new(0.0, 0.0), Vec2f::new(1.0, 1.0), Vec2f::new(1.0, 0.0),
 
         // back
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), 
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0),
+         Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 1.0), Vec2f::new(1.0, 1.0), 
+        Vec2f::new(0.0, 0.0), Vec2f::new(1.0, 1.0), Vec2f::new(1.0, 0.0),
 
         // left
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), 
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0),
+         Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 1.0), Vec2f::new(1.0, 1.0), 
+        Vec2f::new(0.0, 0.0), Vec2f::new(1.0, 1.0), Vec2f::new(1.0, 0.0),
 
         // right
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), 
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0),
+         Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 1.0), Vec2f::new(1.0, 1.0), 
+        Vec2f::new(0.0, 0.0), Vec2f::new(1.0, 1.0), Vec2f::new(1.0, 0.0),
         
         // top
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), 
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0),
+         Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 1.0), Vec2f::new(1.0, 1.0), 
+        Vec2f::new(0.0, 0.0), Vec2f::new(1.0, 1.0), Vec2f::new(1.0, 0.0),
 
         // bottom
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), 
-        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 0.0),
+        Vec2f::new(0.0, 0.0), Vec2f::new(0.0, 1.0), Vec2f::new(1.0, 1.0), 
+        Vec2f::new(1.0, 0.0), Vec2f::new(1.0, 1.0), Vec2f::new(0.0, 0.0),
     );
 
     Mesh::new(verts, tris, uvs)

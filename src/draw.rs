@@ -178,20 +178,14 @@ pub fn triangle(
         let p3 = *cam_inv * p3;
 
         // Projection
-        // let p1 = cam_proj.mul_norm(&p1);
-        // let p2 = cam_proj.mul_norm(&p2);
-        // let p3 = cam_proj.mul_norm(&p3);
-        
         // Todo: make project matrix compatible with depth-correct interpolation
-        let p1 = project(&p1);
-        let p2 = project(&p2);
-        let p3 = project(&p3);
-
-        let p1 = Vec3f::from(&p1);
-        let p2 = Vec3f::from(&p2);
-        let p3 = Vec3f::from(&p3);
-
-        // println!("{:?}, {:?}, {:?}", p1, p2, p3);
+        let p1 = *cam_proj * p1;
+        let p2 = *cam_proj * p2;
+        let p3 = *cam_proj * p3;
+        
+        let p1 = Vec4f::norm_by_w(&p1);
+        let p2 = Vec4f::norm_by_w(&p2);
+        let p3 = Vec4f::norm_by_w(&p3);
 
         triangle_textured(
             screen,
@@ -206,7 +200,7 @@ pub fn triangle(
     }
 }
 
-pub fn triangle_wired(screen: &mut Screen, a: &Vec3f, b: &Vec3f, c: &Vec3f, color: &Color) {
+pub fn triangle_wired(screen: &mut Screen, a: &Vec4f, b: &Vec4f, c: &Vec4f, color: &Color) {
     let screen_dims = Vec2i::new(screen.width as i32, screen.height as i32);
     let a = to_pixelspace(&a, &screen_dims);
     let b = to_pixelspace(&b, &screen_dims);
@@ -223,7 +217,7 @@ pub fn triangle_wired(screen: &mut Screen, a: &Vec3f, b: &Vec3f, c: &Vec3f, colo
 
 pub fn triangle_textured(
     screen: &mut Screen,
-    a: &Vec3f, b: &Vec3f, c: &Vec3f,
+    a: &Vec4f, b: &Vec4f, c: &Vec4f,
     a_uv: &Vec2f, b_uv: &Vec2f, c_uv: &Vec2f,
     tex: &Vec<Color>,
     l_dot_n: f32) {
@@ -234,7 +228,6 @@ pub fn triangle_textured(
     let a_s = to_pixelspace(&a, &screen_dims);
     let b_s = to_pixelspace(&b, &screen_dims);
     let c_s = to_pixelspace(&c, &screen_dims);
-
     let a_s = clip_point(&a_s, &screen_dims);
     let b_s = clip_point(&b_s, &screen_dims);
     let c_s = clip_point(&c_s, &screen_dims);
@@ -287,12 +280,15 @@ pub fn triangle_textured(
             if inside {
                 // interpolate UV values with barycentric coordinates
 
-                let z = 1.0 / (1.0 / a.z * w_a + 1.0 / b.z * w_b + 1.0 / c.z * w_c);
+                let z = 1.0 / (
+                    (1.0 / a.w) * w_a +
+                    (1.0 / b.w) * w_b +
+                    (1.0 / c.w) * w_c);
 
                 let uv = 
-                    (*a_uv / a.z) * w_a +
-                    (*b_uv / b.z) * w_b +
-                    (*c_uv / c.z) * w_c;
+                    (*a_uv / a.w) * w_a +
+                    (*b_uv / b.w) * w_b +
+                    (*c_uv / c.w) * w_c;
 
                 let uv = uv * z;
 
@@ -320,17 +316,18 @@ fn approx_eq(a: f32, b: f32) -> bool {
     a.approx_eq(&b, 2.0 * ::std::f32::EPSILON, 2)
 }
 
-fn to_pixelspace(point: &Vec3f, screen_dims: &Vec2i) -> Vec2i {
+fn to_pixelspace(point: &Vec4f, screen_dims: &Vec2i) -> Vec2i {
     Vec2i::new(
         screen_dims.x / 2 + (point.x * screen_dims.x as f32) as i32,
         screen_dims.y / 2 - (point.y * screen_dims.y as f32) as i32) // Note, we're inverting y here
 }
 
-fn to_camspace(screen_point: &Vec2i, screen_dims: &Vec2i) -> Vec3f {
-    Vec3f {
+fn to_camspace(screen_point: &Vec2i, screen_dims: &Vec2i) -> Vec4f {
+    Vec4f {
         x: (screen_point.x - screen_dims.x / 2) as f32 / screen_dims.x as f32,
         y: (screen_dims.y - screen_point.y - screen_dims.y / 2) as f32 / screen_dims.y as f32, // Note, we're inverting y here
-        z: 0.0
+        z: 0.0,
+        w: 1.0
     }
 }
 
@@ -373,7 +370,7 @@ fn get_aabb(points: Vec<Vec2i>, screen_dims: &Vec2i) -> (Vec2i, Vec2i){
 }
 
 // Todo: only using these as Vec2, so can we make a From<Vec3> that returns same mem reinterpreted as Vec2?
-fn signed_area(a: &Vec3f, b: &Vec3f, p: &Vec3f) -> f32 {
+fn signed_area(a: &Vec4f, b: &Vec4f, p: &Vec4f) -> f32 {
     (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)
 }
 
@@ -470,7 +467,7 @@ mod tests {
     #[test]
     fn test_cam_pixel_space_conversion() {
         let screen_dims = Vec2i::new(400, 300);
-        let cam_space = Vec3f::new(0.65, 0.45, 1.0);
+        let cam_space = Vec4f::new(0.65, 0.45, 0.0, 1.0);
         let pix_space = to_pixelspace(&cam_space, &screen_dims);
         let cam_space_b = to_camspace(&pix_space, &screen_dims);
 

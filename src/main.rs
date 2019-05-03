@@ -35,8 +35,8 @@ fn main() {
 }
 
 fn do_game() -> Result<(), String> {
-    const WIDTH: u32 = 400 * 4;
-    const HEIGHT: u32 = 300 * 4;
+    const WIDTH: u32 = 400 * 2;
+    const HEIGHT: u32 = 300 * 2;
     const SCREEN_BUFF_SIZE: usize = (WIDTH * HEIGHT * 3) as usize;
 
     // Initialize SDL
@@ -95,7 +95,7 @@ fn do_game() -> Result<(), String> {
     canvas.present();
 
     // Our test texture
-    let tex = load_texture(String::from("resources/test.png")).unwrap();
+    let tex = load_texture(String::from("resources/checker.png")).unwrap();
 
     let mut frame : u32 = 0;
     let mut time = 0.0;

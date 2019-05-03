@@ -9,6 +9,7 @@ Some math libs to take inspiration from:
 https://crates.io/crates/cgmath
 https://github.com/rustsim (NAlgebra, NPhysics, NCollide, Alga)
 https://crates.io/crates/num
+https://github.com/JeroenDStout/Ap-Code-BlackRoot
 
 And there's a bunch of Geometric Algebra libs out there, but then
 first we need a basic tour of how to actually use GA. (More reading)
@@ -20,6 +21,7 @@ Todo:
 - Impl traits for references to types, such that caller doesn't need to explicitly dereference
 
 Todo much later:
+- Optimize matrix operations by handling affine and projective 4x4 multiplies separately
 - Specification of generic Scalar type trait bound
 - Write vector arithmetic such that number of dimensions is a generic argument
 - partialEq, Eq and Hash all don't work with f32, but work fine for fixed point types
@@ -326,13 +328,13 @@ impl Vec4f {
         a.x * b.y + a.y * b.y + a.z * b.z + a.w * b.w
     }
 
-    pub fn normalize_by_w(self: &Self) -> Self {
-        Vec4f::new(
-            self.x / self.w,
-            self.y / self.w,
-            self.z / self.w,
-            1.0,
-        )
+    pub fn norm_by_w(a: &Self) -> Self {
+        Vec4f {
+            x: a.x / a.w,
+            y: a.y / a.w,
+            z: a.z / a.w,
+            w: a.w
+        }
     }
 }
 
@@ -711,18 +713,15 @@ impl Mat4x4f {
     pub fn projection(near: f32, far: f32, aspect: f32, fov: f32) -> Mat4x4f {
         let fov_rad: f32 = 1.0 / f32::tan(fov * 0.5 / 180.0 * std::f32::consts::PI);
 
-        let mut proj_mat = Mat4x4f::zero();
+        let mut proj_mat = Mat4x4f::identity();
         proj_mat[0][0] = aspect * fov_rad;
         proj_mat[1][1] = fov_rad;
-        proj_mat[2][3] = far / (far - near);
-        proj_mat[3][2] = 1.0;
+        proj_mat[2][2] = far / (far - near);
+        proj_mat[2][3] = 1.0;
+        proj_mat[3][2] = far * near / (far - near);
+        proj_mat[3][3] = 0.0;
 
         proj_mat
-    }
-
-    pub fn mul_norm(&self, v: &Vec4f) -> Vec4f {
-        let vmul = *self * *v;
-        Vec4f::normalize_by_w(&vmul)
     }
 }
 
