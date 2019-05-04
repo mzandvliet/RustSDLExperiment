@@ -28,6 +28,8 @@ Todo much later:
 
 */
 
+#![allow(dead_code)]
+
 extern crate float_cmp;
 
 use std::ops::*;

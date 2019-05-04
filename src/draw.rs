@@ -1,8 +1,9 @@
 /*
     Todo:
 
+    - Use non-linear [0,1] depth values for depth buffer
+
     - Features
-        - Depth buffer for rendering multiple objects
         - Clipping geometry to frustum
         - Anti-aliasing by subdividing edge pixels
         - Back-face culling by checking sign of cross product of edges
@@ -21,12 +22,15 @@
 
 */
 
+#![allow(dead_code)]
+
 extern crate float_cmp;
 
 use crate::linalg::*;
 
 pub struct Screen {
-    pub buffer: Vec<u8>,
+    pub color: Vec<u8>,
+    pub depth: Vec<f32>,
     pub width: usize,
     pub height: usize,
 }
@@ -111,7 +115,7 @@ impl Mesh {
 // Set an individual pixel's RGB color
 // Todo: investigate access patterns, cache coherence. Using a space-
 // filling curve memory layout might improve drawing to smaller areas.
-pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: &Color) {
+pub fn set_color(screen: &mut Screen, x: usize, y: usize, c: &Color) {
     // println!("settting pixel: [{},{}]", x, y);
 
     // Todo: you don't want to be doing asserts this nested within core loops
@@ -123,9 +127,29 @@ pub fn set_pixel(screen: &mut Screen, x: usize, y: usize, c: &Color) {
     let offset = y * pitch + x * 3;
 
     // Todo: given that Rust does bounds checks, it *might* be faster to writing using (u8,u8,u8) or (u8,u8,u8,u8) tuples
-    screen.buffer[offset] = c.r;
-    // screen.buffer[offset+1] = c.g;
-    // screen.buffer[offset+2] = c.b;
+    screen.color[offset] = c.r;
+    screen.color[offset+1] = c.g;
+    screen.color[offset+2] = c.b;
+}
+
+pub fn set_depth(screen: &mut Screen, x: usize, y: usize, d: f32) {
+    assert!(x < screen.width);
+    assert!(y < screen.height);
+
+    let pitch = screen.width;
+    let offset = y * pitch + x;
+
+    screen.depth[offset] = d;
+}
+
+pub fn get_depth(screen: &mut Screen, x: usize, y: usize) -> f32 {
+    assert!(x < screen.width);
+    assert!(y < screen.height);
+
+    let pitch = screen.width;
+    let offset = y * pitch + x;
+
+    screen.depth[offset]
 }
 
 // Bresenham line drawing algorithm, as per this wonderful paper:
@@ -148,7 +172,7 @@ pub fn line(screen: &mut Screen, a: Vec2i, b: Vec2i, color: &Color) {
     let mut e2: i32;
 
     loop {
-        set_pixel(screen, x0 as usize, y0 as usize, color);
+        set_color(screen, x0 as usize, y0 as usize, color);
         e2 = 2 * err;
         if e2 >= dy {
             if x0 == x1 { break }
@@ -288,29 +312,34 @@ pub fn triangle_textured(
                     b.w * w_b +
                     c.w * w_c);
 
-                let uv = 
+                let curr_depth = get_depth(screen, x as usize, y as usize);
+
+                if z < curr_depth {
+                    let uv = 
                     (*a_uv * a.w) * w_a +
                     (*b_uv * b.w) * w_b +
                     (*c_uv * c.w) * w_c;
 
-                let uv = uv * z;
+                    let uv = uv * z;
 
-                // transform UV values to texture space (taking care not to read out of bounds)
-                // todo: get texture dimensions from texture, instead of hardcoding
-                let uv_scr = ((uv.x * 63.999) as usize, ((1.0 - uv.y) * 63.999) as usize);
+                    // transform UV values to texture space (taking care not to read out of bounds)
+                    // todo: get texture dimensions from texture, instead of hardcoding
+                    let uv_scr = ((uv.x * 63.999) as usize, ((1.0 - uv.y) * 63.999) as usize);
 
-                // read from texture, without filtering
-                // let albedo = tex[uv_scr.0 * 64 + uv_scr.1];
-                let albedo = Color::blue();
+                    // read from texture, without filtering
+                    let albedo = tex[uv_scr.0 * 64 + uv_scr.1];
+                    // let albedo = Color::blue();
 
-                // shade pixel
-                let brightness = 0.1 + 0.9 * l_dot_n;
-                let shaded_color = Color::new(
-                    (albedo.r as f32 * brightness) as u8,
-                    (albedo.g as f32 * brightness) as u8,
-                    (albedo.b as f32 * brightness) as u8);
+                    // shade pixel
+                    let brightness = 0.1 + 0.9 * l_dot_n;
+                    let shaded_color = Color::new(
+                        (albedo.r as f32 * brightness) as u8,
+                        (albedo.g as f32 * brightness) as u8,
+                        (albedo.b as f32 * brightness) as u8);
 
-                set_pixel(screen, x as usize, y as usize, &shaded_color);
+                    set_color(screen, x as usize, y as usize, &shaded_color);
+                    set_depth(screen, x as usize, y as usize, z);
+                }
             }
         }
     }
@@ -419,10 +448,10 @@ pub fn circle(screen: &mut Screen, a: (i32, i32), radius: i32, color: &Color) {
     let mut err = 2 - 2 * radius;
 
     loop {
-        set_pixel(screen, (a.0-x) as usize, (a.1+y) as usize, color);
-        set_pixel(screen, (a.0-y) as usize, (a.1-x) as usize, color);
-        set_pixel(screen, (a.0+x) as usize, (a.1-y) as usize, color);
-        set_pixel(screen, (a.0+y) as usize, (a.1+x) as usize, color);
+        set_color(screen, (a.0-x) as usize, (a.1+y) as usize, color);
+        set_color(screen, (a.0-y) as usize, (a.1-x) as usize, color);
+        set_color(screen, (a.0+x) as usize, (a.1-y) as usize, color);
+        set_color(screen, (a.0+y) as usize, (a.1+x) as usize, color);
         let r = err;
         if r <= y { y+=1; err += y*2+1; }
         if r > 0 || err > y { x+=1; err += x*2+1; }
@@ -433,14 +462,24 @@ pub fn circle(screen: &mut Screen, a: (i32, i32), radius: i32, color: &Color) {
     }
 }
 
-pub fn clear(screen: &mut Screen) {
+pub fn clear_color(screen: &mut Screen) {
     let pitch = screen.width * 3;
     for y in 0..screen.height {
         for x in 0..screen.width {
             let offset = y * pitch + x * 3;
-            screen.buffer[offset] = 0;
-            screen.buffer[offset +1] = 0;
-            screen.buffer[offset +2] = 0;
+            screen.color[offset] = 0;
+            screen.color[offset +1] = 0;
+            screen.color[offset +2] = 0;
+        }
+    }
+}
+
+pub fn clear_depth(screen: &mut Screen) {
+    let pitch = screen.width;
+    for y in 0..screen.height {
+        for x in 0..screen.width {
+            let offset = y * pitch + x;
+            screen.depth[offset] = 1000.0;
         }
     }
 }

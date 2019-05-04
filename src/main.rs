@@ -10,12 +10,12 @@ use sdl2::keyboard::Keycode;
 use sdl2::render::{TextureCreator};
 use std::{thread, time};
 
-mod draw;
-mod linalg;
-mod resources;
-mod bench;
+pub mod draw;
+pub mod linalg;
+pub mod resources;
 
 use linalg::*;
+use draw::*;
 use resources::*;
 
 /*
@@ -37,7 +37,8 @@ fn main() {
 fn do_game() -> Result<(), String> {
     const WIDTH: u32 = 400 * 2;
     const HEIGHT: u32 = 300 * 2;
-    const SCREEN_BUFF_SIZE: usize = (WIDTH * HEIGHT * 3) as usize;
+    const COLOR_BUFF_SIZE: usize = (WIDTH * HEIGHT * 3) as usize;
+    const DEPTH_BUFF_SIZE: usize = (WIDTH * HEIGHT) as usize;
 
     // Initialize SDL
 
@@ -64,18 +65,18 @@ fn do_game() -> Result<(), String> {
     let mut texture = texture_creator.create_texture_streaming(PixelFormatEnum::RGB24, WIDTH, HEIGHT).map_err(|e| e.to_string())?;
 
     // Create our cpu-side screen buffer
-    let screen_buffer: Vec<u8> = vec![0; SCREEN_BUFF_SIZE];
+    let color_buffer: Vec<u8> = vec![0; COLOR_BUFF_SIZE];
+    let depth_buffer: Vec<f32> = vec![1000.0; DEPTH_BUFF_SIZE];
     let mut screen = draw::Screen {
-        buffer: screen_buffer,
+        color: color_buffer,
+        depth: depth_buffer,
         width: WIDTH as usize,
         height: HEIGHT as usize,
     };
     
     // Load our cube mesh
     let mesh = create_cube();
-    let verts = mesh.verts;
-    let tris = mesh.tris;
-    let uvs = mesh.uvs;
+    
 
     // let mesh = create_test_triangle();
     // let verts = mesh.verts;
@@ -87,7 +88,7 @@ fn do_game() -> Result<(), String> {
     let far: f32 = 1000.0;
     let fov: f32 = 80.0;
     let aspect: f32 =  HEIGHT as f32 / WIDTH as f32;
-    let proj_mat = Mat4x4f::projection(near, far, aspect, fov);
+    let cam_proj = Mat4x4f::projection(near, far, aspect, fov);
 
     // Clear screen before doing anything
     canvas.set_draw_color(sdl2::pixels::Color::RGB(0, 0, 0));
@@ -114,46 +115,43 @@ fn do_game() -> Result<(), String> {
             }
         }
 
-        // Do some game logic
-
         // Rendering
 
         // Clear our buffer
-        draw::clear(&mut screen);
+        draw::clear_color(&mut screen);
+        draw::clear_depth(&mut screen);
 
         // Cam setup
-        let cam_mat = Mat4x4f::translation(0.0, 0.0, -8.0);
-        let cam_mat_inverse = cam_mat.inverse();
+        let cam = Mat4x4f::translation(0.0, 0.0, -8.0);
+        let cam_inv = cam.inverse();
 
         // Let's draw our cube
 
         // rotate and translate it in world space
-        let tri_mat = 
+        let obj1_mat = 
             Mat4x4f::translation(0.0, f32::sin(time * 1.0) * 1.0, 0.0) *
             Mat4x4f::rotation_y(f32::sin(time * 3.0) * 1.0) *
             Mat4x4f::rotation_x(f32::sin(time * 1.333) * 1.0);
+
+        let obj2_mat = 
+            Mat4x4f::translation(f32::sin(time * 1.3221) * 2.0, 0.0, 0.0) *
+            Mat4x4f::rotation_y(f32::sin(time * 2.0) * 1.0) *
+            Mat4x4f::rotation_x(f32::sin(time * 1.7672) * 1.0);
+
+        let obj3_mat = 
+            Mat4x4f::scale_uniform(0.5) *
+            Mat4x4f::translation(f32::cos(time * 0.5) * 3.0, f32::sin(time * 1.3221) * 3.0, f32::sin(time * 1.3221) * 3.0) *
+            Mat4x4f::rotation_y(f32::cos(time * 3.1) * 1.0) *
+            Mat4x4f::rotation_x(f32::sin(time * -1.0672) * 1.0);
         // let tri_mat = Mat4x4f::identity();
         
-        // draw all tris in sequence
-        let num_tris = tris.len() / 3;
-        for i in 0..num_tris {
-            draw::triangle(
-                &verts[tris[i*3 + 0]],
-                &verts[tris[i*3 + 1]],
-                &verts[tris[i*3 + 2]],
-                &uvs[i*3 + 0],
-                &uvs[i*3 + 1],
-                &uvs[i*3 + 2],
-                &tex,
-                &tri_mat,
-                &cam_mat_inverse,
-                &proj_mat,
-                &mut screen);
-        }
+        draw_mesh(&mesh, &tex, &obj1_mat, &cam_inv, &cam_proj, &mut screen);
+        draw_mesh(&mesh, &tex, &obj2_mat, &cam_inv, &cam_proj, &mut screen);
+        draw_mesh(&mesh, &tex, &obj3_mat, &cam_inv, &cam_proj, &mut screen);
 
         // Copy screenbuffer to texture
         texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
-            buffer.copy_from_slice(screen.buffer.as_ref());
+            buffer.copy_from_slice(screen.color.as_ref());
         })?;
 
         // Blit it to canvas
@@ -172,4 +170,26 @@ fn do_game() -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn draw_mesh(mesh: &Mesh, tex: &Vec<Color>, transform: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f, screen: &mut Screen) {
+    let verts = &mesh.verts;
+    let tris = &mesh.tris;
+    let uvs = &mesh.uvs;
+
+    let num_tris = tris.len() / 3;
+        for i in 0..num_tris {
+            draw::triangle(
+                &verts[tris[i*3 + 0]],
+                &verts[tris[i*3 + 1]],
+                &verts[tris[i*3 + 2]],
+                &uvs[i*3 + 0],
+                &uvs[i*3 + 1],
+                &uvs[i*3 + 2],
+                tex,
+                transform,
+                cam_inv,
+                cam_proj,
+                screen);
+        }
 }
