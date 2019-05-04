@@ -158,25 +158,3 @@ fn do_game() -> Result<(), String> {
 
     Ok(())
 }
-
-fn draw_mesh(mesh: &Mesh, tex: &Vec<Color>, transform: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f, screen: &mut Screen) {
-    let verts = &mesh.verts;
-    let tris = &mesh.tris;
-    let uvs = &mesh.uvs;
-
-    let num_tris = tris.len() / 3;
-        for i in 0..num_tris {
-            draw::triangle(
-                &verts[tris[i*3 + 0]],
-                &verts[tris[i*3 + 1]],
-                &verts[tris[i*3 + 2]],
-                &uvs[i*3 + 0],
-                &uvs[i*3 + 1],
-                &uvs[i*3 + 2],
-                tex,
-                transform,
-                cam_inv,
-                cam_proj,
-                screen);
-        }
-}

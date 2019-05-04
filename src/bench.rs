@@ -31,41 +31,23 @@ mod tests {
         let mut screen = Screen::new(WIDTH as usize, HEIGHT as usize);
 
         let cam_mat = Mat4x4f::translation(0.0, 0.0, -8.0);
-        let cam_mat_inverse = cam_mat.inverse();
+        let cam_inv = cam_mat.inverse();
 
-        // Camera projection matrix
         let near: f32 = 0.1;
         let far: f32 = 1000.0;
         let fov: f32 = 80.0;
         let aspect: f32 =  HEIGHT as f32 / WIDTH as f32;
-        let proj_mat = Mat4x4f::projection(near, far, aspect, fov);
+        let cam_proj = Mat4x4f::projection(near, far, aspect, fov);
 
-        let tri_mat = Mat4x4f::identity();
+        let obj_mat = Mat4x4f::identity();
         
         let tex = load_texture(String::from("resources/test.png")).unwrap();
 
-        let cube = create_cube();
-        let verts = cube.verts;
-        let tris = cube.tris;
-        let uvs = cube.uvs;
+        let mesh = create_cube();
 
         b.iter(|| {
-            for j in 1..10 {
-                let num_tris = tris.len() / 3;
-                for i in 0..num_tris {
-                    triangle(
-                        &verts[tris[i*3 + 0]],
-                        &verts[tris[i*3 + 1]],
-                        &verts[tris[i*3 + 2]],
-                        &uvs[i*3 + 0],
-                        &uvs[i*3 + 1],
-                        &uvs[i*3 + 2],
-                        &tex,
-                        &tri_mat,
-                        &cam_mat_inverse,
-                        &proj_mat,
-                        &mut screen);
-                }
+            for _j in 1..10 {
+                draw_mesh(&mesh, &tex, &obj_mat, &cam_inv, &cam_proj, &mut screen);
                 black_box(0);
             }
         });
@@ -78,41 +60,23 @@ mod tests {
         let mut screen = Screen::new(WIDTH as usize, HEIGHT as usize);
 
         let cam_mat = Mat4x4f::translation(0.0, 0.0, -8.0);
-        let cam_mat_inverse = cam_mat.inverse();
+        let cam_inv = cam_mat.inverse();
 
-        // Camera projection matrix
         let near: f32 = 0.1;
         let far: f32 = 1000.0;
         let fov: f32 = 80.0;
         let aspect: f32 =  HEIGHT as f32 / WIDTH as f32;
-        let proj_mat = Mat4x4f::projection(near, far, aspect, fov);
+        let cam_proj = Mat4x4f::projection(near, far, aspect, fov);
 
-        let tri_mat = Mat4x4f::identity();
+        let obj_mat = Mat4x4f::identity();
         
         let tex = load_texture(String::from("resources/test.png")).unwrap();
 
-        let cube = create_cube();
-        let verts = cube.verts;
-        let tris = cube.tris;
-        let uvs = cube.uvs;
+        let mesh = create_cube();
 
         b.iter(|| {
-            for j in 1..10 {
-                let num_tris = tris.len() / 3;
-                for i in 0..num_tris {
-                    triangle(
-                        &verts[tris[i*3 + 0]],
-                        &verts[tris[i*3 + 1]],
-                        &verts[tris[i*3 + 2]],
-                        &uvs[i*3 + 0],
-                        &uvs[i*3 + 1],
-                        &uvs[i*3 + 2],
-                        &tex,
-                        &tri_mat,
-                        &cam_mat_inverse,
-                        &proj_mat,
-                        &mut screen);
-                }
+            for _j in 1..10 {
+                draw_mesh(&mesh, &tex, &obj_mat, &cam_inv, &cam_proj, &mut screen);
                 black_box(0);
             }
         });
