@@ -35,6 +35,23 @@ pub struct Screen {
     pub height: usize,
 }
 
+impl Screen {
+    pub fn new(width: usize, height: usize) -> Screen {
+        let color_buffer_size = width * height * 3;
+        let depth_buffer_size = width * height;
+
+        let color_buffer: Vec<u8> = vec![0; color_buffer_size];
+        let depth_buffer: Vec<f32> = vec![1000.0; depth_buffer_size];
+
+        Screen {
+            color: color_buffer,
+            depth: depth_buffer,
+            width: width,
+            height: height,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
 pub struct Vec2i {
     x: i32,

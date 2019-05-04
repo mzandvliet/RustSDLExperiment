@@ -13,6 +13,7 @@ use std::{thread, time};
 pub mod draw;
 pub mod linalg;
 pub mod resources;
+mod bench; // Not exactly sure why, but I need this otherwise my benches don't run
 
 use linalg::*;
 use draw::*;
@@ -37,8 +38,6 @@ fn main() {
 fn do_game() -> Result<(), String> {
     const WIDTH: u32 = 400 * 2;
     const HEIGHT: u32 = 300 * 2;
-    const COLOR_BUFF_SIZE: usize = (WIDTH * HEIGHT * 3) as usize;
-    const DEPTH_BUFF_SIZE: usize = (WIDTH * HEIGHT) as usize;
 
     // Initialize SDL
 
@@ -65,23 +64,10 @@ fn do_game() -> Result<(), String> {
     let mut texture = texture_creator.create_texture_streaming(PixelFormatEnum::RGB24, WIDTH, HEIGHT).map_err(|e| e.to_string())?;
 
     // Create our cpu-side screen buffer
-    let color_buffer: Vec<u8> = vec![0; COLOR_BUFF_SIZE];
-    let depth_buffer: Vec<f32> = vec![1000.0; DEPTH_BUFF_SIZE];
-    let mut screen = draw::Screen {
-        color: color_buffer,
-        depth: depth_buffer,
-        width: WIDTH as usize,
-        height: HEIGHT as usize,
-    };
-    
+    let mut screen = Screen::new(WIDTH as usize, HEIGHT as usize);
+
     // Load our cube mesh
     let mesh = create_cube();
-    
-
-    // let mesh = create_test_triangle();
-    // let verts = mesh.verts;
-    // let tris = mesh.tris;
-    // let uvs = mesh.uvs;
 
     // Camera projection matrix
     let near: f32 = 0.1;

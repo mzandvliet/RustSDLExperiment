@@ -12,17 +12,7 @@ mod tests {
     fn bench_draw_line(b: &mut Bencher) {
         const WIDTH: u32 = 400 * 4;
         const HEIGHT: u32 = 300 * 4;
-        const SCREEN_BUFF_SIZE: usize = (WIDTH * HEIGHT * 3) as usize;
-        const DEPTH_BUFF_SIZE: usize = (WIDTH * HEIGHT) as usize;
-
-        let color_buffer: Vec<u8> = vec![0; SCREEN_BUFF_SIZE];
-        let depth_buffer: Vec<f32> = vec![1000.0; DEPTH_BUFF_SIZE];
-        let mut screen = Screen {
-            color: color_buffer,
-            depth: depth_buffer,
-            width: WIDTH as usize,
-            height: HEIGHT as usize,
-        };
+        let mut screen = Screen::new(WIDTH as usize, HEIGHT as usize);
 
         let line_color = Color::new(255,255,255);
 
@@ -38,17 +28,7 @@ mod tests {
     fn bench_draw_triangle_small_screen(b: &mut Bencher) {
         const WIDTH: u32 = 32;
         const HEIGHT: u32 = 32;
-        const SCREEN_BUFF_SIZE: usize = (WIDTH * HEIGHT * 3) as usize;
-        const DEPTH_BUFF_SIZE: usize = (WIDTH * HEIGHT) as usize;
-
-        let color_buffer: Vec<u8> = vec![0; SCREEN_BUFF_SIZE];
-        let depth_buffer: Vec<f32> = vec![1000.0; DEPTH_BUFF_SIZE];
-        let mut screen = Screen {
-            color: color_buffer,
-            depth: depth_buffer,
-            width: WIDTH as usize,
-            height: HEIGHT as usize,
-        };
+        let mut screen = Screen::new(WIDTH as usize, HEIGHT as usize);
 
         let cam_mat = Mat4x4f::translation(0.0, 0.0, -8.0);
         let cam_mat_inverse = cam_mat.inverse();
@@ -95,14 +75,7 @@ mod tests {
     fn bench_draw_triangle_large_screen(b: &mut Bencher) {
         const WIDTH: u32 = 400 * 4;
         const HEIGHT: u32 = 300 * 4;
-        const SCREEN_BUFF_SIZE: usize = (WIDTH * HEIGHT * 3) as usize;
-
-        let screen_buffer: Vec<u8> = vec![0; SCREEN_BUFF_SIZE];
-        let mut screen = Screen {
-            buffer: screen_buffer,
-            width: WIDTH as usize,
-            height: HEIGHT as usize,
-        };
+        let mut screen = Screen::new(WIDTH as usize, HEIGHT as usize);
 
         let cam_mat = Mat4x4f::translation(0.0, 0.0, -8.0);
         let cam_mat_inverse = cam_mat.inverse();
