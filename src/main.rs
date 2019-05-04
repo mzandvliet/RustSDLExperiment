@@ -81,8 +81,9 @@ fn do_game() -> Result<(), String> {
     canvas.clear();
     canvas.present();
 
-    // Our test texture
-    let tex = load_texture(String::from("resources/checker.png")).unwrap();
+    // Our textures
+    let tex_checker = load_texture(String::from("resources/checker.png")).unwrap();
+    let tex_sprite = load_texture(String::from("resources/test.png")).unwrap();
 
     let mut frame : u32 = 0;
     let mut time = 0.0;
@@ -131,9 +132,9 @@ fn do_game() -> Result<(), String> {
             Mat4x4f::rotation_x(f32::sin(time * -1.0672) * 1.0);
         // let tri_mat = Mat4x4f::identity();
         
-        draw_mesh(&mesh, &tex, &obj1_mat, &cam_inv, &cam_proj, &mut screen);
-        draw_mesh(&mesh, &tex, &obj2_mat, &cam_inv, &cam_proj, &mut screen);
-        draw_mesh(&mesh, &tex, &obj3_mat, &cam_inv, &cam_proj, &mut screen);
+        draw_mesh(&mesh, &tex_sprite, &obj1_mat, &cam_inv, &cam_proj, &mut screen);
+        draw_mesh(&mesh, &tex_checker, &obj2_mat, &cam_inv, &cam_proj, &mut screen);
+        draw_mesh(&mesh, &tex_checker, &obj3_mat, &cam_inv, &cam_proj, &mut screen);
 
         // Copy screenbuffer to texture
         texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
