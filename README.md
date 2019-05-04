@@ -1,4 +1,4 @@
-# RustSDLExperiment
+# Ramjet Rasterizer
 A Simple Software Renderer in Rust + SDL
 
 A personal study project in which I learn:
