@@ -295,6 +295,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ramjet_rasterizer"
+version = "0.1.0"
+dependencies = [
+ "assert_approx_eq 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "float-cmp 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gl 0.11.0 (git+https://github.com/bjz/gl-rs)",
+ "image 0.21.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sdl2 0.32.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "rand"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -428,17 +439,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "scopeguard"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "sdl"
-version = "0.1.0"
-dependencies = [
- "assert_approx_eq 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "float-cmp 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "gl 0.11.0 (git+https://github.com/bjz/gl-rs)",
- "image 0.21.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "sdl2 0.32.1 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "sdl2"

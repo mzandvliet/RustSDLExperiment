@@ -1,5 +1,5 @@
 [package]
-name = "sdl"
+name = "ramjet_rasterizer"
 version = "0.1.0"
 authors = ["mzandvliet <martijn@ramjetanvil.com>"]
 edition = "2018"

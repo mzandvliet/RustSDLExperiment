@@ -20,22 +20,15 @@ use draw::*;
 use resources::*;
 
 /*
-    Use From/Into trait impls to get around all the explicit casting
-    Pass by immutable reference more, instead of by copy. This is not C#, mister.
-
-    Then:
-    Implement line clipping
-    Implement frustum culling
-    Implement triangle clipping
-    Implement more of Lengyel's book
+    Single-threaded software rendering loop that pipes the resulting color buffer
+    into SDL2
 */
 
-
 fn main() {
-    do_game().unwrap();
+    start_renderloop().unwrap();
 }
 
-fn do_game() -> Result<(), String> {
+fn start_renderloop() -> Result<(), String> {
     const WIDTH: u32 = 400 * 2;
     const HEIGHT: u32 = 300 * 2;
 
@@ -46,7 +39,7 @@ fn do_game() -> Result<(), String> {
     let video_subsystem = sdl_context.video()?;
 
     let window = video_subsystem
-        .window("Spinning Cube", WIDTH, HEIGHT)
+        .window("Spinning Textured Cubes", WIDTH, HEIGHT)
         .position_centered()
         .build()
         .map_err(|e| e.to_string())?;
@@ -81,7 +74,7 @@ fn do_game() -> Result<(), String> {
     canvas.clear();
     canvas.present();
 
-    // Our textures
+    // Load our textures
     let tex_checker = load_texture(String::from("resources/checker.png")).unwrap();
     let tex_sprite = load_texture(String::from("resources/test.png")).unwrap();
 
@@ -89,7 +82,7 @@ fn do_game() -> Result<(), String> {
     let mut time = 0.0;
 
     'running: loop {
-        // Game simulation logic
+        // Input pulling
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
@@ -102,6 +95,8 @@ fn do_game() -> Result<(), String> {
             }
         }
 
+        // Todo: some game logic here I guess
+
         // Rendering
 
         // Clear our buffer
@@ -112,7 +107,7 @@ fn do_game() -> Result<(), String> {
         let cam = Mat4x4f::translation(0.0, 0.0, -8.0);
         let cam_inv = cam.inverse();
 
-        // Let's draw our cube
+        // Let's draw some cubes
 
         // rotate and translate it in world space
         let obj1_mat = 
@@ -130,21 +125,23 @@ fn do_game() -> Result<(), String> {
             Mat4x4f::translation(f32::cos(time * 0.5) * 3.0, f32::sin(time * 1.3221) * 3.0, f32::sin(time * 1.3221) * 3.0) *
             Mat4x4f::rotation_y(f32::cos(time * 3.1) * 1.0) *
             Mat4x4f::rotation_x(f32::sin(time * -1.0672) * 1.0);
-        // let tri_mat = Mat4x4f::identity();
+        
+        // let obj_mat = Mat4x4f::identity();
         
         draw_mesh(&mesh, &tex_sprite, &obj1_mat, &cam_inv, &cam_proj, &mut screen);
         draw_mesh(&mesh, &tex_checker, &obj2_mat, &cam_inv, &cam_proj, &mut screen);
         draw_mesh(&mesh, &tex_checker, &obj3_mat, &cam_inv, &cam_proj, &mut screen);
 
-        // Copy screenbuffer to texture
+        // Copy screenbuffer to SDL texture
         texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
             buffer.copy_from_slice(screen.color.as_ref());
         })?;
 
-        // Blit it to canvas
+        // And blit it to canvas
         let screen_rect = Rect::new(0,0,WIDTH,HEIGHT);
         canvas.copy(&texture, screen_rect, screen_rect)?;
 
+        // And finally, the canvas is shown
         canvas.present();
 
         frame += 1;

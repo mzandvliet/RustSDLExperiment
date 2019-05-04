@@ -1,8 +1,6 @@
 /*
     Todo:
 
-    - Use non-linear [0,1] depth values for depth buffer
-
     - Features
         - Clipping geometry to frustum
         - Anti-aliasing by subdividing edge pixels
@@ -233,7 +231,6 @@ pub fn triangle(
     // Todo: 
     // - split this into multiple stages, of course, and
     // - loop over a list of points instead
-    // - do backface culling before rendering solids
 
     // Obj to world
     let p1 = *obj_mat * *p1;
