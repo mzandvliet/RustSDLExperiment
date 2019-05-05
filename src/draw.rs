@@ -151,7 +151,8 @@ pub fn draw_mesh(mesh: &Mesh, tex: &Vec<Color>, transform: &Mat4x4f, cam_inv: &M
 
 // Set an individual pixel's RGB color
 // Todo: investigate access patterns, cache coherence. Using a space-
-// filling curve memory layout might improve drawing to smaller areas.
+// filling curve memory layout might improve drawing to smaller areas. (for bresenham)
+// or: use unsafe code, render a horizontal strip by pointer increment (for raster)
 pub fn set_color(screen: &mut Screen, x: usize, y: usize, c: &Color) {
     // println!("settting pixel: [{},{}]", x, y);
 
@@ -160,11 +161,11 @@ pub fn set_color(screen: &mut Screen, x: usize, y: usize, c: &Color) {
     assert!(x < screen.width);
     assert!(y < screen.height);
 
-    let pitch = screen.width * 3;
-    let offset = y * pitch + x * 3;
+    let stride = screen.width * 3;
+    let offset = y * stride + x * 3;
 
     // Todo: given that Rust does bounds checks, it *might* be faster to writing using (u8,u8,u8) or (u8,u8,u8,u8) tuples
-    screen.color[offset] = c.r;
+    screen.color[offset+0] = c.r;
     screen.color[offset+1] = c.g;
     screen.color[offset+2] = c.b;
 }
@@ -173,8 +174,8 @@ pub fn set_depth(screen: &mut Screen, x: usize, y: usize, d: f32) {
     assert!(x < screen.width);
     assert!(y < screen.height);
 
-    let pitch = screen.width;
-    let offset = y * pitch + x;
+    let stride = screen.width;
+    let offset = y * stride + x;
 
     screen.depth[offset] = d;
 }
@@ -314,16 +315,18 @@ pub fn triangle_textured(
 
     let aabb = get_aabb(vec!(a_s,b_s,c_s), &screen_dims);
 
+    let tri_area_inv = 1.0 / signed_area(&a, &b, &c);
+
     // Loop over bounded pixels
-    for x in (aabb.0).x..(aabb.1).x {
-        for y in (aabb.0).y..(aabb.1).y {
+    for y in (aabb.0).y..(aabb.1).y {
+        for x in (aabb.0).x..(aabb.1).x {
             // Transform pixel position into camera space. If inside cam-space triangle, draw it.
             let pix_camspace = to_camspace(&Vec2i::new(x,y), &screen_dims);
 
-            let area = signed_area(&a, &b, &c);
-            let w_a = signed_area(&b, &c, &pix_camspace) / area;
-            let w_b = signed_area(&c, &a, &pix_camspace) / area;
-            let w_c = signed_area(&a, &b, &pix_camspace) / area;
+            // Todo: save divide until later, but ensure correctness
+            let bary_a = signed_area(&b, &c, &pix_camspace) * tri_area_inv;
+            let bary_b = signed_area(&c, &a, &pix_camspace) * tri_area_inv;
+            let bary_c = signed_area(&a, &b, &pix_camspace) * tri_area_inv;
 
             let edge_0 = *c - *a;
             let edge_1 = *a - *c;
@@ -336,25 +339,25 @@ pub fn triangle_textured(
             on the edge of a top-left triangle, then we rasterize
             */
             
-            test_topleft(&edge_0, w_a, &mut inside);
-            test_topleft(&edge_1, w_b, &mut inside);
-            test_topleft(&edge_2, w_c, &mut inside);
+            test_topleft(&edge_0, bary_a, &mut inside);
+            test_topleft(&edge_1, bary_b, &mut inside);
+            test_topleft(&edge_2, bary_c, &mut inside);
 
             if inside {
                 // interpolate UV values with barycentric coordinates
 
                 let z = 1.0 / (
-                    a.w * w_a +
-                    b.w * w_b +
-                    c.w * w_c);
+                    a.w * bary_a +
+                    b.w * bary_b +
+                    c.w * bary_c);
 
                 let curr_depth = get_depth(screen, x as usize, y as usize);
 
                 if z < curr_depth {
                     let uv = 
-                    (*a_uv * a.w) * w_a +
-                    (*b_uv * b.w) * w_b +
-                    (*c_uv * c.w) * w_c;
+                    (*a_uv * a.w) * bary_a +
+                    (*b_uv * b.w) * bary_b +
+                    (*c_uv * c.w) * bary_c;
 
                     let uv = uv * z;
 
@@ -372,6 +375,22 @@ pub fn triangle_textured(
                         (albedo.r as f32 * brightness) as u8,
                         (albedo.g as f32 * brightness) as u8,
                         (albedo.b as f32 * brightness) as u8);
+
+                    // unsafe {
+                    //     let stride = screen.width * 3;
+                    //     let offset = y as usize * stride + x as usize * 3;
+                    //     let mut col_pointer = screen.color.as_mut_ptr().offset(offset as isize);
+                    //     *col_pointer = shaded_color.r;
+                    //     col_pointer = col_pointer.offset(1);
+                    //     *col_pointer = shaded_color.g;
+                    //     col_pointer = col_pointer.offset(1);
+                    //     *col_pointer = shaded_color.b;
+
+                    //     let stride = screen.width;
+                    //     let offset = y as usize * stride + x as usize;
+                    //     let depth_pointer = screen.depth.as_mut_ptr().offset(offset as isize);
+                    //     *depth_pointer = z;
+                    // }
 
                     set_color(screen, x as usize, y as usize, &shaded_color);
                     set_depth(screen, x as usize, y as usize, z);
@@ -410,7 +429,7 @@ fn approx_eq(a: f32, b: f32) -> bool {
         My much less correct implementation that still gets me results, at a
         small fraction of the cost.
     */
-    (a.abs() - b.abs()).abs() < std::f32::EPSILON
+    f32::abs(a - b) < std::f32::EPSILON
 
     /*
         Todo: This approx_eq test, as used to determine whether a pixel lies on

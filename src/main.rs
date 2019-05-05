@@ -29,8 +29,8 @@ fn main() {
 }
 
 fn start_renderloop() -> Result<(), String> {
-    const WIDTH: u32 = 400 * 2;
-    const HEIGHT: u32 = 300 * 2;
+    const WIDTH: u32 = 400 * 4;
+    const HEIGHT: u32 = 300 * 4;
 
     // Initialize SDL
 
