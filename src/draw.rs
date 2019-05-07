@@ -304,6 +304,8 @@ pub fn triangle_textured(
     l_dot_n: f32) {
     let screen_dims = Vec2i::new(screen.width as i32, screen.height as i32);
 
+    // println!("{:?}", to_camspace(&Vec2i::new(screen_dims.x,screen_dims.y), &screen_dims));
+
     // We generate a screen-pixel-space bounding box around the triangle
     // to limit the region of pixels tested against the triangle
     let a_s = to_pixelspace(&a, &screen_dims);
@@ -312,25 +314,47 @@ pub fn triangle_textured(
     let a_s = clip_point(&a_s, &screen_dims);
     let b_s = clip_point(&b_s, &screen_dims);
     let c_s = clip_point(&c_s, &screen_dims);
-
     let aabb = get_aabb(vec!(a_s,b_s,c_s), &screen_dims);
+
+    let edge_0 = *c - *a;
+    let edge_1 = *a - *c;
+    let edge_2 = *b - *a;
 
     let tri_area_inv = 1.0 / signed_area(&a, &b, &c);
 
+    let step_x = 1.0 / screen_dims.x as f32;
+    let step_y = 1.0 / screen_dims.y as f32;
+
+    // Todo: something's wrong with values going negative instead of positive here
+    let bary_a_step_x = signed_area_step_x(step_x, b, c);
+    let bary_a_step_y = signed_area_step_y(step_y, b, c);
+    let bary_b_step_x = signed_area_step_x(step_x, c, a);
+    let bary_b_step_y = signed_area_step_y(step_y, c, a);
+    let bary_c_step_x = signed_area_step_x(step_x, a, b);
+    let bary_c_step_y = signed_area_step_y(step_y, a, b);
+
+    // println!("{}, {}, {}", bary_a_step_y, bary_b_step_y, bary_c_step_y);
+
+    let pix_camspace_bl = to_camspace(&Vec2i::new(aabb.0.x,aabb.0.y), &screen_dims);
+    let mut bary_a_row = signed_area(&b, &c, &pix_camspace_bl);
+    let mut bary_b_row = signed_area(&c, &a, &pix_camspace_bl);
+    let mut bary_c_row = signed_area(&a, &b, &pix_camspace_bl);
+
+    // println!("[0,0]: {}, {}, {}", bary_a_row, bary_b_row, bary_c_row);
+
     // Loop over bounded pixels
     for y in (aabb.0).y..(aabb.1).y {
+        let mut bary_a = bary_a_row;
+        let mut bary_b = bary_b_row;
+        let mut bary_c = bary_c_row;
+
         for x in (aabb.0).x..(aabb.1).x {
             // Transform pixel position into camera space. If inside cam-space triangle, draw it.
-            let pix_camspace = to_camspace(&Vec2i::new(x,y), &screen_dims);
-
             // Todo: save divide until later, but ensure correctness
-            let bary_a = signed_area(&b, &c, &pix_camspace) * tri_area_inv;
-            let bary_b = signed_area(&c, &a, &pix_camspace) * tri_area_inv;
-            let bary_c = signed_area(&a, &b, &pix_camspace) * tri_area_inv;
-
-            let edge_0 = *c - *a;
-            let edge_1 = *a - *c;
-            let edge_2 = *b - *a;
+            // let pix_camspace = to_camspace(&Vec2i::new(x,y), &screen_dims);
+            // let bary_a = signed_area(&b, &c, &pix_camspace) * tri_area_inv;
+            // let bary_b = signed_area(&c, &a, &pix_camspace) * tri_area_inv;
+            // let bary_c = signed_area(&a, &b, &pix_camspace) * tri_area_inv;
 
             let mut inside: bool = true;
 
@@ -338,26 +362,29 @@ pub fn triangle_textured(
             If all three edge tests are positive, or we're a pixel right
             on the edge of a top-left triangle, then we rasterize
             */
+
+            // println!("[{},{}]: {}, {}, {}", x, y, bary_a * tri_area_inv, bary_b * tri_area_inv, bary_c * tri_area_inv);
+            // println!("[{},{}]: {}, {}, {}", x, y, bary_a, bary_b, bary_c);
             
-            test_topleft(&edge_0, bary_a, &mut inside);
-            test_topleft(&edge_1, bary_b, &mut inside);
-            test_topleft(&edge_2, bary_c, &mut inside);
+            test_topleft(&edge_0, bary_a * tri_area_inv, &mut inside);
+            test_topleft(&edge_1, bary_b * tri_area_inv, &mut inside);
+            test_topleft(&edge_2, bary_c * tri_area_inv, &mut inside);
 
             if inside {
                 // interpolate UV values with barycentric coordinates
 
                 let z = 1.0 / (
-                    a.w * bary_a +
-                    b.w * bary_b +
-                    c.w * bary_c);
+                    a.w * bary_a * tri_area_inv +
+                    b.w * bary_b * tri_area_inv +
+                    c.w * bary_c * tri_area_inv);
 
                 let curr_depth = get_depth(screen, x as usize, y as usize);
 
                 if z < curr_depth {
                     let uv = 
-                    (*a_uv * a.w) * bary_a +
-                    (*b_uv * b.w) * bary_b +
-                    (*c_uv * c.w) * bary_c;
+                    (*a_uv * a.w) * bary_a * tri_area_inv +
+                    (*b_uv * b.w) * bary_b * tri_area_inv +
+                    (*c_uv * c.w) * bary_c * tri_area_inv;
 
                     let uv = uv * z;
 
@@ -380,7 +407,15 @@ pub fn triangle_textured(
                     set_depth(screen, x as usize, y as usize, z);
                 }
             }
+
+            bary_a += bary_a_step_x;
+            bary_b += bary_b_step_x;
+            bary_c += bary_c_step_x;
         }
+
+        bary_a_row += bary_a_step_y;
+        bary_b_row += bary_b_step_y;
+        bary_c_row += bary_c_step_y;
     }
 }
 
@@ -436,6 +471,7 @@ fn to_camspace(screen_point: &Vec2i, screen_dims: &Vec2i) -> Vec4f {
     }
 }
 
+
 fn project(p: &Vec4f) -> Vec4f {
     Vec4f::new(p.x / p.z, p.y / p.z, p.z, 1.0)
 }
@@ -466,8 +502,7 @@ fn get_aabb(points: Vec<Vec2i>, screen_dims: &Vec2i) -> (Vec2i, Vec2i){
         if (p.y) > y_max {y_max = p.y;}
     }
 
-    // bounding box min/max points, padded with extra pixel
-    // Todo: if we did the bounding box in camera space, we wouldn't need to pad like this
+    // Todo: improve things so we don't need this padding
     (
         Vec2i::new(x_min-1, y_min-1),
         Vec2i::new(x_max+1, y_max+1)
@@ -477,6 +512,14 @@ fn get_aabb(points: Vec<Vec2i>, screen_dims: &Vec2i) -> (Vec2i, Vec2i){
 // Todo: only using these as Vec2, so can we make a From<Vec3> that returns same mem reinterpreted as Vec2?
 fn signed_area(a: &Vec4f, b: &Vec4f, p: &Vec4f) -> f32 {
     (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)
+}
+
+fn signed_area_step_x(step_x: f32, a: &Vec4f, b: &Vec4f) -> f32 {
+    -step_x * (a.y - b.y) // Uh, thetse are the reverse of what I derived them to be. But Giesen has them this way. Why?
+}
+
+fn signed_area_step_y(step_y: f32, a: &Vec4f, b: &Vec4f) -> f32 {
+    step_y * (b.x - a.x)
 }
 
 // Bresenham-style circle drawing algorithm, as per this wonderful paper:

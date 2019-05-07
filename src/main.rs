@@ -29,8 +29,12 @@ fn main() {
 }
 
 fn start_renderloop() -> Result<(), String> {
-    const WIDTH: u32 = 400 * 4;
-    const HEIGHT: u32 = 300 * 4;
+    // const WIDTH: u32 = 400 * 4;
+    // const HEIGHT: u32 = 300 * 4;
+    const WIDTH: u32 = 400;
+    const HEIGHT: u32 = 300;
+    // const WIDTH: u32 = 64;
+    // const HEIGHT: u32 = 64;
 
     // Initialize SDL
 
@@ -126,7 +130,7 @@ fn start_renderloop() -> Result<(), String> {
             Mat4x4f::rotation_y(f32::cos(time * 3.1) * 1.0) *
             Mat4x4f::rotation_x(f32::sin(time * -1.0672) * 1.0);
         
-        // let obj_mat = Mat4x4f::identity();
+        // let obj1_mat = Mat4x4f::identity();
         
         draw_mesh(&mesh, &tex_sprite, &obj1_mat, &cam_inv, &cam_proj, &mut screen);
         draw_mesh(&mesh, &tex_checker, &obj2_mat, &cam_inv, &cam_proj, &mut screen);
