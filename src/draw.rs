@@ -376,22 +376,6 @@ pub fn triangle_textured(
                         (albedo.g as f32 * brightness) as u8,
                         (albedo.b as f32 * brightness) as u8);
 
-                    // unsafe {
-                    //     let stride = screen.width * 3;
-                    //     let offset = y as usize * stride + x as usize * 3;
-                    //     let mut col_pointer = screen.color.as_mut_ptr().offset(offset as isize);
-                    //     *col_pointer = shaded_color.r;
-                    //     col_pointer = col_pointer.offset(1);
-                    //     *col_pointer = shaded_color.g;
-                    //     col_pointer = col_pointer.offset(1);
-                    //     *col_pointer = shaded_color.b;
-
-                    //     let stride = screen.width;
-                    //     let offset = y as usize * stride + x as usize;
-                    //     let depth_pointer = screen.depth.as_mut_ptr().offset(offset as isize);
-                    //     *depth_pointer = z;
-                    // }
-
                     set_color(screen, x as usize, y as usize, &shaded_color);
                     set_depth(screen, x as usize, y as usize, z);
                 }
