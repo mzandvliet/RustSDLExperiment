@@ -326,19 +326,19 @@ pub fn triangle_textured(
     let step_y = 1.0 / screen_dims.y as f32;
 
     // Todo: something's wrong with values going negative instead of positive here
-    let bary_a_step_x = signed_area_step_x(step_x, b, c);
-    let bary_a_step_y = signed_area_step_y(step_y, b, c);
-    let bary_b_step_x = signed_area_step_x(step_x, c, a);
-    let bary_b_step_y = signed_area_step_y(step_y, c, a);
-    let bary_c_step_x = signed_area_step_x(step_x, a, b);
-    let bary_c_step_y = signed_area_step_y(step_y, a, b);
+    let bary_a_step_x = signed_area_step_x(step_x, b, c) * tri_area_inv;
+    let bary_a_step_y = signed_area_step_y(step_y, b, c) * tri_area_inv;
+    let bary_b_step_x = signed_area_step_x(step_x, c, a) * tri_area_inv;
+    let bary_b_step_y = signed_area_step_y(step_y, c, a) * tri_area_inv;
+    let bary_c_step_x = signed_area_step_x(step_x, a, b) * tri_area_inv;
+    let bary_c_step_y = signed_area_step_y(step_y, a, b) * tri_area_inv;
 
     // println!("{}, {}, {}", bary_a_step_y, bary_b_step_y, bary_c_step_y);
 
     let pix_camspace_bl = to_camspace(&Vec2i::new(aabb.0.x,aabb.0.y), &screen_dims);
-    let mut bary_a_row = signed_area(&b, &c, &pix_camspace_bl);
-    let mut bary_b_row = signed_area(&c, &a, &pix_camspace_bl);
-    let mut bary_c_row = signed_area(&a, &b, &pix_camspace_bl);
+    let mut bary_a_row = signed_area(&b, &c, &pix_camspace_bl) * tri_area_inv;
+    let mut bary_b_row = signed_area(&c, &a, &pix_camspace_bl) * tri_area_inv;
+    let mut bary_c_row = signed_area(&a, &b, &pix_camspace_bl) * tri_area_inv;
 
     // println!("[0,0]: {}, {}, {}", bary_a_row, bary_b_row, bary_c_row);
 
@@ -349,13 +349,6 @@ pub fn triangle_textured(
         let mut bary_c = bary_c_row;
 
         for x in (aabb.0).x..(aabb.1).x {
-            // Transform pixel position into camera space. If inside cam-space triangle, draw it.
-            // Todo: save divide until later, but ensure correctness
-            // let pix_camspace = to_camspace(&Vec2i::new(x,y), &screen_dims);
-            // let bary_a = signed_area(&b, &c, &pix_camspace) * tri_area_inv;
-            // let bary_b = signed_area(&c, &a, &pix_camspace) * tri_area_inv;
-            // let bary_c = signed_area(&a, &b, &pix_camspace) * tri_area_inv;
-
             let mut inside: bool = true;
 
             /*
@@ -363,28 +356,25 @@ pub fn triangle_textured(
             on the edge of a top-left triangle, then we rasterize
             */
 
-            // println!("[{},{}]: {}, {}, {}", x, y, bary_a * tri_area_inv, bary_b * tri_area_inv, bary_c * tri_area_inv);
-            // println!("[{},{}]: {}, {}, {}", x, y, bary_a, bary_b, bary_c);
-            
-            test_topleft(&edge_0, bary_a * tri_area_inv, &mut inside);
-            test_topleft(&edge_1, bary_b * tri_area_inv, &mut inside);
-            test_topleft(&edge_2, bary_c * tri_area_inv, &mut inside);
+            test_topleft(&edge_0, bary_a, &mut inside);
+            test_topleft(&edge_1, bary_b, &mut inside);
+            test_topleft(&edge_2, bary_c, &mut inside);
 
             if inside {
                 // interpolate UV values with barycentric coordinates
 
                 let z = 1.0 / (
-                    a.w * bary_a * tri_area_inv +
-                    b.w * bary_b * tri_area_inv +
-                    c.w * bary_c * tri_area_inv);
+                    a.w * bary_a +
+                    b.w * bary_b +
+                    c.w * bary_c);
 
                 let curr_depth = get_depth(screen, x as usize, y as usize);
 
                 if z < curr_depth {
                     let uv = 
-                    (*a_uv * a.w) * bary_a * tri_area_inv +
-                    (*b_uv * b.w) * bary_b * tri_area_inv +
-                    (*c_uv * c.w) * bary_c * tri_area_inv;
+                    (*a_uv * a.w) * bary_a +
+                    (*b_uv * b.w) * bary_b +
+                    (*c_uv * c.w) * bary_c;
 
                     let uv = uv * z;
 
