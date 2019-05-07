@@ -322,16 +322,16 @@ pub fn triangle_textured(
 
     let tri_area_inv = 1.0 / signed_area(&a, &b, &c);
 
-    let step_x = 1.0 / screen_dims.x as f32;
-    let step_y = 1.0 / screen_dims.y as f32;
+    let step_x = (1.0 / screen_dims.x as f32) * tri_area_inv;
+    let step_y = (1.0 / screen_dims.y as f32) * tri_area_inv;
 
     // Todo: something's wrong with values going negative instead of positive here
-    let bary_a_step_x = signed_area_step_x(step_x, b, c) * tri_area_inv;
-    let bary_a_step_y = signed_area_step_y(step_y, b, c) * tri_area_inv;
-    let bary_b_step_x = signed_area_step_x(step_x, c, a) * tri_area_inv;
-    let bary_b_step_y = signed_area_step_y(step_y, c, a) * tri_area_inv;
-    let bary_c_step_x = signed_area_step_x(step_x, a, b) * tri_area_inv;
-    let bary_c_step_y = signed_area_step_y(step_y, a, b) * tri_area_inv;
+    let bary_a_step_x = signed_area_step_x(step_x, b, c);
+    let bary_a_step_y = signed_area_step_y(step_y, b, c);
+    let bary_b_step_x = signed_area_step_x(step_x, c, a);
+    let bary_b_step_y = signed_area_step_y(step_y, c, a);
+    let bary_c_step_x = signed_area_step_x(step_x, a, b);
+    let bary_c_step_y = signed_area_step_y(step_y, a, b);
 
     // println!("{}, {}, {}", bary_a_step_y, bary_b_step_y, bary_c_step_y);
 
@@ -372,9 +372,9 @@ pub fn triangle_textured(
 
                 if z < curr_depth {
                     let uv = 
-                    (*a_uv * a.w) * bary_a +
-                    (*b_uv * b.w) * bary_b +
-                    (*c_uv * c.w) * bary_c;
+                    *a_uv * a.w * bary_a +
+                    *b_uv * b.w * bary_b +
+                    *c_uv * c.w * bary_c;
 
                     let uv = uv * z;
 
@@ -505,7 +505,9 @@ fn signed_area(a: &Vec4f, b: &Vec4f, p: &Vec4f) -> f32 {
 }
 
 fn signed_area_step_x(step_x: f32, a: &Vec4f, b: &Vec4f) -> f32 {
-    -step_x * (a.y - b.y) // Uh, thetse are the reverse of what I derived them to be. But Giesen has them this way. Why?
+    // Uh, these are the reverse of what I derived them to be. But Giesen has them this way. Why?
+    // because of the y inversion I have elsewhere?
+    -step_x * (a.y - b.y) 
 }
 
 fn signed_area_step_y(step_y: f32, a: &Vec4f, b: &Vec4f) -> f32 {
