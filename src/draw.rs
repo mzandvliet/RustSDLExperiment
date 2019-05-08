@@ -159,8 +159,8 @@ pub fn draw_mesh(mesh: &Mesh, tex: &Vec<Color>, transform: &Mat4x4f, cam_inv: &M
 // Todo: unsigned types
 #[derive(Debug, Copy, Clone)]
 pub struct BoundingBox {
-    pub bot_left:  Vec2i,
-    pub top_right: Vec2i,
+    pub bl:  Vec2i, // bottom left
+    pub tr: Vec2i, // top right
 }
 
 impl BoundingBox {
@@ -168,8 +168,8 @@ impl BoundingBox {
         BoundingBoxIterator {
             bounds: *self,
             step: step,
-            x: self.bot_left.x,
-            y_count: self.bot_left.y,
+            x: self.bl.x,
+            y_count: self.bl.y,
         }
     }
 }
@@ -186,21 +186,21 @@ impl Iterator for BoundingBoxIterator {
 
     fn next(&mut self) -> Option<BoundingBox> {
         let result = Some(BoundingBox { 
-            bot_left: Vec2i::new(
+            bl: Vec2i::new(
                 self.x,
                 self.y_count),
-            top_right: Vec2i::new(
-                i32::min(self.x + self.step, self.bounds.top_right.x),
-                i32::min(self.y_count + self.step, self.bounds.top_right.y)),
+            tr: Vec2i::new(
+                i32::min(self.x + self.step, self.bounds.tr.x),
+                i32::min(self.y_count + self.step, self.bounds.tr.y)),
         });
 
         self.x += self.step;
-        if self.x > self.bounds.top_right.x {
-            self.x = self.bounds.bot_left.x;
+        if self.x > self.bounds.tr.x {
+            self.x = self.bounds.bl.x;
             self.y_count += self.step;
         }
 
-        if self.y_count >= self.bounds.top_right.y {
+        if self.y_count >= self.bounds.tr.y {
             None
         } else {
             result
@@ -381,7 +381,7 @@ pub fn triangle_textured(
     let a_s = clip_point(&a_s, &screen_dims);
     let b_s = clip_point(&b_s, &screen_dims);
     let c_s = clip_point(&c_s, &screen_dims);
-    let aabb = get_aabb(vec!(a_s,b_s,c_s), &screen_dims);
+    let bounds = get_bounds(vec!(a_s,b_s,c_s), &screen_dims);
 
     let edges = Triangle {
         a: tri.c - tri.a,
@@ -390,10 +390,6 @@ pub fn triangle_textured(
     };
 
     let tri_area_inv = 1.0 / signed_area(&tri.a, &tri.b, &tri.c);
-
-    // Todo:
-    // And now some fancy iter logic to loop over the aabb in terms
-    // of 8x8 sub-aabbs...
 
     // Precalculate per-pixel barycentric coordinate steps in x and y
     // This is used for optimized edge function calculations, which
@@ -413,50 +409,88 @@ pub fn triangle_textured(
         signed_area_step_y(step_y, &tri.a, &tri.b),
     );
 
-    // Full barycentric coordinate calculation for bottom-left pixel coordinate
-    let pix_camspace_bl = to_camspace(&Vec2i::new(aabb.0.x,aabb.0.y), &screen_dims);
+    // Todo:
+    // And now some fancy iter logic to loop over the aabb in terms
+    // of 8x8 sub-aabbs...
+    for tile in bounds.iter(8) {
+        if triangle_contains_box(tri, &edges, &tile, &screen_dims) {
+            // Full barycentric coordinate calculation for bottom-left pixel coordinate
+            let pix_camspace_bl = to_camspace(&Vec2i::new(tile.bl.x,tile.bl.y), &screen_dims);
 
-    let mut bary_row = Vec3f::new(
-        signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
-        signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
-        signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
-    );
+            let mut bary_row = Vec3f::new(
+                signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
+                signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
+                signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
+            );
 
-    // Loop over bounded pixels
-    for y in (aabb.0).y..(aabb.1).y {
-        let mut bary = bary_row;
+            for y in (tile.bl).y..(tile.tr).y {
+                let mut bary = bary_row;
 
-        for x in (aabb.0).x..(aabb.1).x {
-            let mut inside: bool = true;
+                for x in (tile.bl).x..(tile.tr).x {
+                    shade(
+                        tri,
+                        a_uv, b_uv, c_uv,
+                        &bary,
+                        tex,
+                        screen,
+                        l_dot_n,
+                        x as usize,
+                        y as usize
+                    );
 
-            /*
-            If all three edge tests are positive, or we're a pixel right
-            on the edge of a top-left triangle, then we rasterize
-            */
+                    // Step barycentric coordinates 1 pixel along x
+                    bary = bary + bary_step_x;
+                }
 
-            test_topleft(&edges.a, bary.x, &mut inside);
-            test_topleft(&edges.b, bary.y, &mut inside);
-            test_topleft(&edges.c, bary.z, &mut inside);
-
-            if inside {
-                shade(
-                    tri,
-                    a_uv, b_uv, c_uv,
-                    &bary,
-                    tex,
-                    screen,
-                    l_dot_n,
-                    x as usize,
-                    y as usize
-                );
+                // Step barycentric coordinates 1 pixel along y
+                bary_row = bary_row + bary_step_y;
             }
+        } else {
+            // Full barycentric coordinate calculation for bottom-left pixel coordinate
+            let pix_camspace_bl = to_camspace(&Vec2i::new(tile.bl.x,tile.bl.y), &screen_dims);
 
-            // Step barycentric coordinates 1 pixel along x
-            bary = bary + bary_step_x;
+            let mut bary_row = Vec3f::new(
+                signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
+                signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
+                signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
+            );
+
+            for y in (tile.bl).y..(tile.tr).y {
+                let mut bary = bary_row;
+
+                for x in (tile.bl).x..(tile.tr).x {
+                    let mut inside: bool = true;
+
+                    /*
+                    If all three edge tests are positive, or we're a pixel right
+                    on the edge of a top-left triangle, then we rasterize
+                    */
+
+                    test_topleft(&edges.a, bary.x, &mut inside);
+                    test_topleft(&edges.b, bary.y, &mut inside);
+                    test_topleft(&edges.c, bary.z, &mut inside);
+
+                    if inside {
+                        shade(
+                            tri,
+                            a_uv, b_uv, c_uv,
+                            &bary,
+                            tex,
+                            screen,
+                            l_dot_n,
+                            x as usize,
+                            y as usize
+                        );
+                    }
+
+                    // Step barycentric coordinates 1 pixel along x
+                    bary = bary + bary_step_x;
+                }
+
+                // Step barycentric coordinates 1 pixel along y
+                bary_row = bary_row + bary_step_y;
+            }
         }
-
-        // Step barycentric coordinates 1 pixel along y
-        bary_row = bary_row + bary_step_y;
     }
 }
 
@@ -504,14 +538,14 @@ fn shade(
     }
 }
 
-fn triangle_contains_box(tri: &Triangle, edges: &Triangle, aabb: &(Vec2i, Vec2i), screen_dims: &Vec2i) -> bool {
+fn triangle_contains_box(tri: &Triangle, edges: &Triangle, aabb: &BoundingBox, screen_dims: &Vec2i) -> bool {
     // Todo: pass in precalculated values
     let tri_area_inv = 1.0 / signed_area(&tri.a, &tri.b, &tri.c);
 
-    let bot_left  = to_camspace(&Vec2i::new(aabb.0.x,aabb.0.y), &screen_dims);
-    let top_left  = to_camspace(&Vec2i::new(aabb.0.x,aabb.1.y), &screen_dims);
-    let bot_right = to_camspace(&Vec2i::new(aabb.1.x,aabb.0.y), &screen_dims);
-    let top_right = to_camspace(&Vec2i::new(aabb.1.x,aabb.1.y), &screen_dims);
+    let bot_left  = to_camspace(&Vec2i::new(aabb.bl.x,aabb.bl.y), &screen_dims);
+    let top_left  = to_camspace(&Vec2i::new(aabb.bl.x,aabb.tr.y), &screen_dims);
+    let bot_right = to_camspace(&Vec2i::new(aabb.tr.x,aabb.bl.y), &screen_dims);
+    let top_right = to_camspace(&Vec2i::new(aabb.tr.x,aabb.tr.y), &screen_dims);
 
     let mut inside: bool = true;
     inside &= is_point_inside(tri, &edges, tri_area_inv, &bot_left);
@@ -609,7 +643,7 @@ fn clip_point(point: &Vec2i, screen_dims: &Vec2i) -> Vec2i {
 }
 
 // Calculate a screen-space bounding box for a given polygon/triangle
-fn get_aabb(points: Vec<Vec2i>, screen_dims: &Vec2i) -> (Vec2i, Vec2i){
+fn get_bounds(points: Vec<Vec2i>, screen_dims: &Vec2i) -> BoundingBox {
     let mut x_min: i32 = screen_dims.x;
     let mut y_min: i32 = screen_dims.y;
     let mut x_max: i32 = 0;
@@ -622,11 +656,10 @@ fn get_aabb(points: Vec<Vec2i>, screen_dims: &Vec2i) -> (Vec2i, Vec2i){
         if (p.y) > y_max {y_max = p.y;}
     }
 
-    // Todo: improve things so we don't need this padding
-    (
-        Vec2i::new(x_min-1, y_min-1),
-        Vec2i::new(x_max+1, y_max+1)
-    ) 
+    BoundingBox {
+        bl: Vec2i::new(x_min-1, y_min-1),
+        tr: Vec2i::new(x_max+1, y_max+1)
+    }
 }
 
 // Todo: only using these as Vec2, so can we make a From<Vec3> that returns same mem reinterpreted as Vec2?
@@ -761,6 +794,18 @@ mod tests {
             let b = i as f32 + 0.00000001;
 
             assert!(approx_eq(a, b));
+        }
+    }
+
+    #[test]
+    fn test_bounds() {
+        let aabb = BoundingBox {
+            bl: Vec2i::new(20,24),
+            tr: Vec2i::new(126, 127),
+        };
+
+        for b in aabb.iter(8) {
+            println!("{:?}", b);
         }
     }
 }
