@@ -315,8 +315,7 @@ pub fn triangle(
         let light_dir = Vec3f::new(0.0, -0.5, 1.0).normalize();
         let l_dot_n = f32::max(0.0, -Vec3f::dot(&normal, &light_dir));
 
-        // Todo: premultiply cam/proj mats
-        // World to camera space
+        // Project from world to cam space
         let p1 = *cam * p1;
         let p2 = *cam * p2;
         let p3 = *cam * p3;
@@ -416,7 +415,7 @@ pub fn triangle_textured(
     );
 
     // Full barycentric coordinate calculation for bottom-left pixel coordinate
-    let pix_camspace_bl = to_camspace(&Vec2i::new(bounds.bl.x,bounds.bl.y), &screen_dims);
+    let pix_camspace_bl = screen_to_camspace(&Vec2i::new(bounds.bl.x,bounds.bl.y), &screen_dims);
 
     let bary_bl = Vec3f::new(
         signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
@@ -434,7 +433,7 @@ pub fn triangle_textured(
     // Todo: if none of the corners fall in the triangle, skip the tile
     // entirely
     for tile in bounds.iter(8) {
-        match triangle_box_edge_overlaps(tri, &edges, &tile, &screen_dims) {
+        match triangle_box_corner_overlaps(tri, &edges, &tile, &screen_dims) {
             4 => tile_cache.fast_tiles.push(tile),
             0...3 => tile_cache.slow_tiles.push(tile),
             _ => ()
@@ -564,25 +563,26 @@ fn shade(
     }
 }
 
-fn triangle_box_edge_overlaps(tri: &Triangle, edges: &Triangle, bounds: &BoundingBox, screen_dims: &Vec2i) -> u8 {
+fn triangle_box_corner_overlaps(tri: &Triangle, edges: &Triangle, bounds: &BoundingBox, screen_dims: &Vec2i) -> u8 {
     // Todo: pass in precalculated values
     let tri_area_inv = 1.0 / signed_area(&tri.a, &tri.b, &tri.c);
 
-    let bot_left  = to_camspace(&Vec2i::new(bounds.bl.x,bounds.bl.y), &screen_dims);
-    let top_left  = to_camspace(&Vec2i::new(bounds.bl.x,bounds.tr.y), &screen_dims);
-    let bot_right = to_camspace(&Vec2i::new(bounds.tr.x,bounds.bl.y), &screen_dims);
-    let top_right = to_camspace(&Vec2i::new(bounds.tr.x,bounds.tr.y), &screen_dims);
+    let bot_left  = screen_to_camspace(&Vec2i::new(bounds.bl.x,bounds.bl.y), &screen_dims);
+    let top_left  = screen_to_camspace(&Vec2i::new(bounds.bl.x,bounds.tr.y), &screen_dims);
+    let bot_right = screen_to_camspace(&Vec2i::new(bounds.tr.x,bounds.bl.y), &screen_dims);
+    let top_right = screen_to_camspace(&Vec2i::new(bounds.tr.x,bounds.tr.y), &screen_dims);
 
     let mut edge_overlap_count: u8 = 0;
-    if is_point_inside(tri, &edges, tri_area_inv, &bot_left) { edge_overlap_count += 1; }
-    if is_point_inside(tri, &edges, tri_area_inv, &top_left) { edge_overlap_count += 1; }
-    if is_point_inside(tri, &edges, tri_area_inv, &bot_right) { edge_overlap_count += 1; }
-    if is_point_inside(tri, &edges, tri_area_inv, &top_right) { edge_overlap_count += 1; }
+    if is_point_inside_triangle(tri, &edges, tri_area_inv, &bot_left) { edge_overlap_count += 1; }
+    if is_point_inside_triangle(tri, &edges, tri_area_inv, &top_left) { edge_overlap_count += 1; }
+    if is_point_inside_triangle(tri, &edges, tri_area_inv, &bot_right) { edge_overlap_count += 1; }
+    if is_point_inside_triangle(tri, &edges, tri_area_inv, &top_right) { edge_overlap_count += 1; }
 
     edge_overlap_count
 }
 
-fn is_point_inside(tri: &Triangle, edges: &Triangle, tri_area_inv: f32, pix_camspace: &Vec4f) -> bool {
+// Todo: use the optimized way to calculate the barycentric coords
+fn is_point_inside_triangle(tri: &Triangle, edges: &Triangle, tri_area_inv: f32, pix_camspace: &Vec4f) -> bool {
     let bary = Vec3f::new(
         signed_area(&tri.b, &tri.c, &pix_camspace) * tri_area_inv,
         signed_area(&tri.c, &tri.a, &pix_camspace) * tri_area_inv,
@@ -603,6 +603,7 @@ fn is_point_inside(tri: &Triangle, edges: &Triangle, tri_area_inv: f32, pix_cams
     reference implementation, performance is not great
     working with float approx this way feels nasty (use fixed?)
     not having ternary statements makes this code lengthy
+    Giesen makes this into 3 >= checks on ints
 */
 fn test_topleft(edge: &Vec4f, w: f32, inside: &mut bool) {
      if approx_eq(w, 0.0) {
@@ -627,7 +628,7 @@ fn approx_eq(a: f32, b: f32) -> bool {
         My much less correct implementation that still gets me results, at a
         small fraction of the cost.
     */
-    f32::abs(a - b) < std::f32::EPSILON
+    f32::abs(a - b) < std::f32::EPSILON * 2.0
 
     /*
         Todo: This approx_eq test, as used to determine whether a pixel lies on
@@ -641,7 +642,7 @@ fn to_pixelspace(point: &Vec4f, screen_dims: &Vec2i) -> Vec2i {
         screen_dims.y / 2 - (point.y * screen_dims.y as f32) as i32) // Note, we're inverting y here
 }
 
-fn to_camspace(screen_point: &Vec2i, screen_dims: &Vec2i) -> Vec4f {
+fn screen_to_camspace(screen_point: &Vec2i, screen_dims: &Vec2i) -> Vec4f {
     Vec4f {
         x: (screen_point.x - screen_dims.x / 2) as f32 / screen_dims.x as f32,
         y: (screen_dims.y - screen_point.y - screen_dims.y / 2) as f32 / screen_dims.y as f32, // Note, we're inverting y here
@@ -807,7 +808,7 @@ mod tests {
         let screen_dims = Vec2i::new(400, 300);
         let cam_space = Vec4f::new(0.65, 0.45, 0.0, 1.0);
         let pix_space = to_pixelspace(&cam_space, &screen_dims);
-        let cam_space_b = to_camspace(&pix_space, &screen_dims);
+        let cam_space_b = screen_to_camspace(&pix_space, &screen_dims);
 
         assert_eq!(cam_space, cam_space_b);
     }
