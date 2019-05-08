@@ -111,6 +111,13 @@ impl Color {
     }
 }
 
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub struct Triangle {
+    pub a: Vec4f,
+    pub b: Vec4f,
+    pub c: Vec4f,
+}
+
 pub struct Mesh {
     pub verts: Vec<Vec4f>,
     pub tris: Vec<usize>,
@@ -248,6 +255,7 @@ pub fn triangle(
         let light_dir = Vec3f::new(0.0, -0.5, 1.0).normalize();
         let l_dot_n = f32::max(0.0, -Vec3f::dot(&normal, &light_dir));
 
+        // Todo: premultiply cam/proj mats
         // World to camera space
         let p1 = *cam_inv * p1;
         let p2 = *cam_inv * p2;
@@ -268,9 +276,16 @@ pub fn triangle(
         p2.w = 1.0 / p2.w;
         p3.w = 1.0 / p3.w;
 
+        // Todo: use triangles from earlier in the chain
+        let tri = Triangle {
+            a: p1,
+            b: p2,
+            c: p3,
+        };
+
         triangle_textured(
             screen,
-            &p1, &p2, &p3,
+            &tri,
             uv1, uv2, uv3,
             tex,
             l_dot_n);
@@ -298,7 +313,7 @@ pub fn triangle_wired(screen: &mut Screen, a: &Vec4f, b: &Vec4f, c: &Vec4f, colo
 
 pub fn triangle_textured(
     screen: &mut Screen,
-    a: &Vec4f, b: &Vec4f, c: &Vec4f,
+    tri: &Triangle,
     a_uv: &Vec2f, b_uv: &Vec2f, c_uv: &Vec2f,
     tex: &Vec<Color>,
     l_dot_n: f32) {
@@ -308,45 +323,52 @@ pub fn triangle_textured(
 
     // We generate a screen-pixel-space bounding box around the triangle
     // to limit the region of pixels tested against the triangle
-    let a_s = to_pixelspace(&a, &screen_dims);
-    let b_s = to_pixelspace(&b, &screen_dims);
-    let c_s = to_pixelspace(&c, &screen_dims);
+    let a_s = to_pixelspace(&tri.a, &screen_dims);
+    let b_s = to_pixelspace(&tri.b, &screen_dims);
+    let c_s = to_pixelspace(&tri.c, &screen_dims);
     let a_s = clip_point(&a_s, &screen_dims);
     let b_s = clip_point(&b_s, &screen_dims);
     let c_s = clip_point(&c_s, &screen_dims);
     let aabb = get_aabb(vec!(a_s,b_s,c_s), &screen_dims);
 
-    let edge_0 = *c - *a;
-    let edge_1 = *a - *c;
-    let edge_2 = *b - *a;
+    let edges = Triangle {
+        a: tri.c - tri.a,
+        b: tri.a - tri.c,
+        c: tri.b - tri.a,
+    };
 
-    let tri_area_inv = 1.0 / signed_area(&a, &b, &c);
+    let tri_area_inv = 1.0 / signed_area(&tri.a, &tri.b, &tri.c);
+
+    // Todo:
+    // And now some fancy iter logic to loop over the aabb in terms
+    // of 8x8 sub-aabbs...
 
     let step_x = (1.0 / screen_dims.x as f32) * tri_area_inv;
     let step_y = (1.0 / screen_dims.y as f32) * tri_area_inv;
 
-    // Todo: something's wrong with values going negative instead of positive here
-    let bary_a_step_x = signed_area_step_x(step_x, b, c);
-    let bary_a_step_y = signed_area_step_y(step_y, b, c);
-    let bary_b_step_x = signed_area_step_x(step_x, c, a);
-    let bary_b_step_y = signed_area_step_y(step_y, c, a);
-    let bary_c_step_x = signed_area_step_x(step_x, a, b);
-    let bary_c_step_y = signed_area_step_y(step_y, a, b);
+    let bary_step_x = Vec3f::new(
+        signed_area_step_x(step_x, &tri.b, &tri.c),
+        signed_area_step_x(step_x, &tri.c, &tri.a),
+        signed_area_step_x(step_x, &tri.a, &tri.b),
+    );
 
-    // println!("{}, {}, {}", bary_a_step_y, bary_b_step_y, bary_c_step_y);
+    let bary_step_y = Vec3f::new(
+        signed_area_step_y(step_y, &tri.b, &tri.c),
+        signed_area_step_y(step_y, &tri.c, &tri.a),
+        signed_area_step_y(step_y, &tri.a, &tri.b),
+    );
 
     let pix_camspace_bl = to_camspace(&Vec2i::new(aabb.0.x,aabb.0.y), &screen_dims);
-    let mut bary_a_row = signed_area(&b, &c, &pix_camspace_bl) * tri_area_inv;
-    let mut bary_b_row = signed_area(&c, &a, &pix_camspace_bl) * tri_area_inv;
-    let mut bary_c_row = signed_area(&a, &b, &pix_camspace_bl) * tri_area_inv;
 
-    // println!("[0,0]: {}, {}, {}", bary_a_row, bary_b_row, bary_c_row);
+    let mut bary_row = Vec3f::new(
+        signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
+        signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
+        signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
+    );
 
     // Loop over bounded pixels
     for y in (aabb.0).y..(aabb.1).y {
-        let mut bary_a = bary_a_row;
-        let mut bary_b = bary_b_row;
-        let mut bary_c = bary_c_row;
+        let mut bary = bary_row;
 
         for x in (aabb.0).x..(aabb.1).x {
             let mut inside: bool = true;
@@ -356,57 +378,103 @@ pub fn triangle_textured(
             on the edge of a top-left triangle, then we rasterize
             */
 
-            test_topleft(&edge_0, bary_a, &mut inside);
-            test_topleft(&edge_1, bary_b, &mut inside);
-            test_topleft(&edge_2, bary_c, &mut inside);
+            test_topleft(&edges.a, bary.x, &mut inside);
+            test_topleft(&edges.b, bary.y, &mut inside);
+            test_topleft(&edges.c, bary.z, &mut inside);
 
             if inside {
-                // interpolate UV values with barycentric coordinates
-
-                let z = 1.0 / (
-                    a.w * bary_a +
-                    b.w * bary_b +
-                    c.w * bary_c);
-
-                let curr_depth = get_depth(screen, x as usize, y as usize);
-
-                if z < curr_depth {
-                    let uv = 
-                    *a_uv * a.w * bary_a +
-                    *b_uv * b.w * bary_b +
-                    *c_uv * c.w * bary_c;
-
-                    let uv = uv * z;
-
-                    // transform UV values to texture space (taking care not to read out of bounds)
-                    // todo: get texture dimensions from texture, instead of hardcoding
-                    let uv_scr = ((uv.x * 63.999) as usize, ((1.0 - uv.y) * 63.999) as usize);
-
-                    // read from texture, without filtering
-                    let albedo = tex[uv_scr.0 * 64 + uv_scr.1];
-                    // let albedo = Color::blue();
-
-                    // shade pixel
-                    let brightness = 0.1 + 0.9 * l_dot_n;
-                    let shaded_color = Color::new(
-                        (albedo.r as f32 * brightness) as u8,
-                        (albedo.g as f32 * brightness) as u8,
-                        (albedo.b as f32 * brightness) as u8);
-
-                    set_color(screen, x as usize, y as usize, &shaded_color);
-                    set_depth(screen, x as usize, y as usize, z);
-                }
+                shade(
+                    tri,
+                    a_uv, b_uv, c_uv,
+                    tex,
+                    &bary,
+                    screen,
+                    l_dot_n,
+                    x as usize,
+                    y as usize
+                );
             }
 
-            bary_a += bary_a_step_x;
-            bary_b += bary_b_step_x;
-            bary_c += bary_c_step_x;
+            bary = bary + bary_step_x;
         }
 
-        bary_a_row += bary_a_step_y;
-        bary_b_row += bary_b_step_y;
-        bary_c_row += bary_c_step_y;
+        bary_row = bary_row + bary_step_y;
     }
+}
+
+fn shade(tri: &Triangle, a_uv: &Vec2f, b_uv: &Vec2f, c_uv: &Vec2f,
+    tex: &Vec<Color>, bary: &Vec3f, screen: &mut Screen, l_dot_n: f32, x: usize, y: usize) {
+
+    // interpolate UV values with barycentric coordinates
+    let z = 1.0 / (
+        tri.a.w * bary.x +
+        tri.b.w * bary.y +
+        tri.c.w * bary.z);
+
+    let curr_depth = get_depth(screen, x, y);
+
+    if z < curr_depth {
+        let uv = 
+        *a_uv * tri.a.w * bary.x +
+        *b_uv * tri.b.w * bary.y +
+        *c_uv * tri.c.w * bary.z;
+
+        let uv = uv * z;
+
+        // transform UV values to texture space (taking care not to read out of bounds)
+        // todo: get texture dimensions from texture, instead of hardcoding
+        let uv_scr = ((uv.x * 63.999) as usize, ((1.0 - uv.y) * 63.999) as usize);
+
+        // read from texture, without filtering
+        let albedo = tex[uv_scr.0 * 64 + uv_scr.1];
+        // let albedo = Color::blue();
+
+        // shade pixel
+        let brightness = 0.1 + 0.9 * l_dot_n;
+        let shaded_color = Color::new(
+            (albedo.r as f32 * brightness) as u8,
+            (albedo.g as f32 * brightness) as u8,
+            (albedo.b as f32 * brightness) as u8);
+
+        set_color(screen, x as usize, y as usize, &shaded_color);
+        set_depth(screen, x as usize, y as usize, z);
+    }
+}
+
+fn triangle_contains_box(tri: &Triangle, edges: &Triangle, aabb: &(Vec2i, Vec2i), screen_dims: &Vec2i) -> bool {
+    // Todo: pass in precalculated values
+    
+    let tri_area_inv = 1.0 / signed_area(&tri.a, &tri.b, &tri.c);
+
+    let bot_left  = to_camspace(&Vec2i::new(aabb.0.x,aabb.0.y), &screen_dims);
+    let top_left  = to_camspace(&Vec2i::new(aabb.0.x,aabb.1.y), &screen_dims);
+    let bot_right = to_camspace(&Vec2i::new(aabb.1.x,aabb.0.y), &screen_dims);
+    let top_right = to_camspace(&Vec2i::new(aabb.1.x,aabb.1.y), &screen_dims);
+
+    let mut inside: bool = true;
+    inside &= is_point_inside(tri, &edges, tri_area_inv, &bot_left);
+    inside &= is_point_inside(tri, &edges, tri_area_inv, &top_left);
+    inside &= is_point_inside(tri, &edges, tri_area_inv, &bot_right);
+    inside &= is_point_inside(tri, &edges, tri_area_inv, &top_right);
+
+    inside
+    
+}
+
+fn is_point_inside(tri: &Triangle, edges: &Triangle, tri_area_inv: f32, pix_camspace: &Vec4f) -> bool {
+    let bary = Vec3f::new(
+        signed_area(&tri.b, &tri.c, &pix_camspace) * tri_area_inv,
+        signed_area(&tri.c, &tri.a, &pix_camspace) * tri_area_inv,
+        signed_area(&tri.a, &tri.b, &pix_camspace) * tri_area_inv
+    );
+
+    let mut inside: bool = true;
+
+    test_topleft(&edges.a, bary.x, &mut inside);
+    test_topleft(&edges.b, bary.y, &mut inside);
+    test_topleft(&edges.c, bary.z, &mut inside);
+
+    inside
 }
 
 /*
