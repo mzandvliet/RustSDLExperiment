@@ -156,6 +156,54 @@ pub fn draw_mesh(mesh: &Mesh, tex: &Vec<Color>, transform: &Mat4x4f, cam_inv: &M
         }
 }
 
+// Todo: unsigned types
+#[derive(Debug, Copy, Clone)]
+pub struct BoundingBox {
+    pub bot_left:  Vec2i,
+    pub top_right: Vec2i,
+}
+
+impl BoundingBox {
+    pub fn iter(&self, step: i32) -> BoundingBoxIterator {
+        BoundingBoxIterator {
+            bounds: *self,
+            step: step,
+            x_count: 0,
+            y_count: 0,
+        }
+    }
+}
+
+pub struct BoundingBoxIterator {
+    pub bounds: BoundingBox,
+    pub step: i32,
+    x_count: i32,
+    y_count: i32
+}
+
+impl Iterator for BoundingBoxIterator {
+    type Item = BoundingBox;
+
+    fn next(&mut self) -> Option<BoundingBox> {
+        let result = Some(BoundingBox { 
+            bot_left: Vec2i::new(self.x_count, self.y_count),
+            top_right: Vec2i::new(self.x_count+ self.step, self.y_count + self.step),
+        });
+
+        self.x_count += self.step;
+        if self.x_count > self.bounds.top_right.x {
+            self.x_count = 0;
+            self.y_count += self.step;
+        }
+
+        if self.y_count >= self.bounds.top_right.y {
+            None
+        } else {
+            result
+        }
+    }
+}
+
 // Set an individual pixel's RGB color
 // Todo: investigate access patterns, cache coherence. Using a space-
 // filling curve memory layout might improve drawing to smaller areas. (for bresenham)
@@ -343,6 +391,9 @@ pub fn triangle_textured(
     // And now some fancy iter logic to loop over the aabb in terms
     // of 8x8 sub-aabbs...
 
+    // Precalculate per-pixel barycentric coordinate steps in x and y
+    // This is used for optimized edge function calculations, which
+    // are linear in x and y.
     let step_x = (1.0 / screen_dims.x as f32) * tri_area_inv;
     let step_y = (1.0 / screen_dims.y as f32) * tri_area_inv;
 
@@ -358,6 +409,7 @@ pub fn triangle_textured(
         signed_area_step_y(step_y, &tri.a, &tri.b),
     );
 
+    // Full barycentric coordinate calculation for bottom-left pixel coordinate
     let pix_camspace_bl = to_camspace(&Vec2i::new(aabb.0.x,aabb.0.y), &screen_dims);
 
     let mut bary_row = Vec3f::new(
@@ -386,8 +438,8 @@ pub fn triangle_textured(
                 shade(
                     tri,
                     a_uv, b_uv, c_uv,
-                    tex,
                     &bary,
+                    tex,
                     screen,
                     l_dot_n,
                     x as usize,
@@ -395,15 +447,22 @@ pub fn triangle_textured(
                 );
             }
 
+            // Step barycentric coordinates 1 pixel along x
             bary = bary + bary_step_x;
         }
 
+        // Step barycentric coordinates 1 pixel along y
         bary_row = bary_row + bary_step_y;
     }
 }
 
-fn shade(tri: &Triangle, a_uv: &Vec2f, b_uv: &Vec2f, c_uv: &Vec2f,
-    tex: &Vec<Color>, bary: &Vec3f, screen: &mut Screen, l_dot_n: f32, x: usize, y: usize) {
+fn shade(
+    tri: &Triangle,
+    a_uv: &Vec2f, b_uv: &Vec2f, c_uv: &Vec2f,
+    bary: &Vec3f,
+    tex: &Vec<Color>,
+    screen: &mut Screen,
+    l_dot_n: f32, x: usize, y: usize) {
 
     // interpolate UV values with barycentric coordinates
     let z = 1.0 / (
@@ -443,7 +502,6 @@ fn shade(tri: &Triangle, a_uv: &Vec2f, b_uv: &Vec2f, c_uv: &Vec2f,
 
 fn triangle_contains_box(tri: &Triangle, edges: &Triangle, aabb: &(Vec2i, Vec2i), screen_dims: &Vec2i) -> bool {
     // Todo: pass in precalculated values
-    
     let tri_area_inv = 1.0 / signed_area(&tri.a, &tri.b, &tri.c);
 
     let bot_left  = to_camspace(&Vec2i::new(aabb.0.x,aabb.0.y), &screen_dims);

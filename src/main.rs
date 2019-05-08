@@ -25,7 +25,16 @@ use resources::*;
 */
 
 fn main() {
-    start_renderloop().unwrap();
+    let aabb = BoundingBox {
+        bot_left: Vec2i::new(0,0),
+        top_right: Vec2i::new(128, 128),
+    };
+
+    for b in aabb.iter(8) {
+        println!("{:?}", b);
+    }
+
+    //start_renderloop().unwrap();
 }
 
 fn start_renderloop() -> Result<(), String> {
