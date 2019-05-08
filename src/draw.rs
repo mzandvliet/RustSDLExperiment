@@ -431,11 +431,10 @@ pub fn triangle_textured(
     // Todo: if none of the corners fall in the triangle, skip the tile
     // entirely
     for tile in bounds.iter(16) {
-        if triangle_contains_box(tri, &edges, &tile, &screen_dims) {
-            tile_cache.fast_tiles.push(tile);
-        }
-        else {
-            tile_cache.slow_tiles.push(tile);
+        match triangle_box_edge_overlaps(tri, &edges, &tile, &screen_dims) {
+            4 => tile_cache.fast_tiles.push(tile),
+            1...3 => tile_cache.slow_tiles.push(tile),
+            _ => ()
         }
     }
 
@@ -475,53 +474,53 @@ pub fn triangle_textured(
         }
     }
 
-    // for tile in &tile_cache.slow_tiles {
-    //     // Slow path
+    for tile in &tile_cache.slow_tiles {
+        // Slow path
             
-    //     // Full barycentric coordinate calculation for bottom-left pixel coordinate
-    //     let pix_camspace_bl = to_camspace(&Vec2i::new(tile.bl.x,tile.bl.y), &screen_dims);
+        // Full barycentric coordinate calculation for bottom-left pixel coordinate
+        let pix_camspace_bl = to_camspace(&Vec2i::new(tile.bl.x,tile.bl.y), &screen_dims);
 
-    //     let mut bary_row = Vec3f::new(
-    //         signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
-    //         signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
-    //         signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
-    //     );
+        let mut bary_row = Vec3f::new(
+            signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
+            signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
+            signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
+        );
 
-    //     for y in (tile.bl).y..(tile.tr).y {
-    //         let mut bary = bary_row;
+        for y in (tile.bl).y..(tile.tr).y {
+            let mut bary = bary_row;
 
-    //         for x in (tile.bl).x..(tile.tr).x {
-    //             let mut inside: bool = true;
+            for x in (tile.bl).x..(tile.tr).x {
+                let mut inside: bool = true;
 
-    //             /*
-    //             If all three edge tests are positive, or we're a pixel right
-    //             on the edge of a top-left triangle, then we rasterize
-    //             */
-    //             test_topleft(&edges.a, bary.x, &mut inside);
-    //             test_topleft(&edges.b, bary.y, &mut inside);
-    //             test_topleft(&edges.c, bary.z, &mut inside);
+                /*
+                If all three edge tests are positive, or we're a pixel right
+                on the edge of a top-left triangle, then we rasterize
+                */
+                test_topleft(&edges.a, bary.x, &mut inside);
+                test_topleft(&edges.b, bary.y, &mut inside);
+                test_topleft(&edges.c, bary.z, &mut inside);
 
-    //             if inside {
-    //                 shade(
-    //                     tri,
-    //                     a_uv, b_uv, c_uv,
-    //                     &bary,
-    //                     tex,
-    //                     screen,
-    //                     l_dot_n,
-    //                     x as usize,
-    //                     y as usize
-    //                 );
-    //             }
+                if inside {
+                    shade(
+                        tri,
+                        a_uv, b_uv, c_uv,
+                        &bary,
+                        tex,
+                        screen,
+                        l_dot_n,
+                        x as usize,
+                        y as usize
+                    );
+                }
 
-    //             // Step barycentric coordinates 1 pixel along x
-    //             bary = bary + bary_step_x;
-    //         }
+                // Step barycentric coordinates 1 pixel along x
+                bary = bary + bary_step_x;
+            }
 
-    //         // Step barycentric coordinates 1 pixel along y
-    //         bary_row = bary_row + bary_step_y;
-    //     }
-    // }
+            // Step barycentric coordinates 1 pixel along y
+            bary_row = bary_row + bary_step_y;
+        }
+    }
 }
 
 fn shade(
@@ -568,7 +567,7 @@ fn shade(
     }
 }
 
-fn triangle_contains_box(tri: &Triangle, edges: &Triangle, aabb: &BoundingBox, screen_dims: &Vec2i) -> bool {
+fn triangle_box_edge_overlaps(tri: &Triangle, edges: &Triangle, aabb: &BoundingBox, screen_dims: &Vec2i) -> u8 {
     // Todo: pass in precalculated values
     let tri_area_inv = 1.0 / signed_area(&tri.a, &tri.b, &tri.c);
 
@@ -577,14 +576,13 @@ fn triangle_contains_box(tri: &Triangle, edges: &Triangle, aabb: &BoundingBox, s
     let bot_right = to_camspace(&Vec2i::new(aabb.tr.x,aabb.bl.y), &screen_dims);
     let top_right = to_camspace(&Vec2i::new(aabb.tr.x,aabb.tr.y), &screen_dims);
 
-    let mut inside: bool = true;
-    inside &= is_point_inside(tri, &edges, tri_area_inv, &bot_left);
-    inside &= is_point_inside(tri, &edges, tri_area_inv, &top_left);
-    inside &= is_point_inside(tri, &edges, tri_area_inv, &bot_right);
-    inside &= is_point_inside(tri, &edges, tri_area_inv, &top_right);
+    let mut edge_overlap_count: u8 = 0;
+    if is_point_inside(tri, &edges, tri_area_inv, &bot_left) { edge_overlap_count += 1; }
+    if is_point_inside(tri, &edges, tri_area_inv, &top_left) { edge_overlap_count += 1; }
+    if is_point_inside(tri, &edges, tri_area_inv, &bot_right) { edge_overlap_count += 1; }
+    if is_point_inside(tri, &edges, tri_area_inv, &top_right) { edge_overlap_count += 1; }
 
-    inside
-    
+    edge_overlap_count
 }
 
 fn is_point_inside(tri: &Triangle, edges: &Triangle, tri_area_inv: f32, pix_camspace: &Vec4f) -> bool {
