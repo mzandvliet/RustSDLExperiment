@@ -421,6 +421,15 @@ pub fn triangle_textured(
         signed_area_step_y(step_y, &tri.a, &tri.b),
     );
 
+    // Full barycentric coordinate calculation for bottom-left pixel coordinate
+    let pix_camspace_bl = to_camspace(&Vec2i::new(bounds.bl.x,bounds.bl.y), &screen_dims);
+
+    let bary_bl = Vec3f::new(
+        signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
+        signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
+        signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
+    );
+
     tile_cache.fast_tiles.clear();
     tile_cache.slow_tiles.clear();
 
@@ -444,14 +453,9 @@ pub fn triangle_textured(
     for tile in &tile_cache.fast_tiles {
         // Fast path
 
-        // Full barycentric coordinate calculation for bottom-left pixel coordinate
-        let pix_camspace_bl = to_camspace(&Vec2i::new(tile.bl.x,tile.bl.y), &screen_dims);
-
-        let mut bary_row = Vec3f::new(
-            signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
-            signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
-            signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
-        );
+        let mut bary_row = bary_bl +
+            bary_step_y * (tile.bl.y-bounds.bl.y) as f32 +
+            bary_step_x * (tile.bl.x-bounds.bl.x) as f32;
 
         for y in tile.bl.y..tile.tr.y {
             let mut bary = bary_row;
@@ -480,14 +484,9 @@ pub fn triangle_textured(
     for tile in &tile_cache.slow_tiles {
         // Slow path
             
-        // Full barycentric coordinate calculation for bottom-left pixel coordinate
-        let pix_camspace_bl = to_camspace(&Vec2i::new(tile.bl.x,tile.bl.y), &screen_dims);
-
-        let mut bary_row = Vec3f::new(
-            signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
-            signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
-            signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
-        );
+        let mut bary_row = bary_bl +
+            bary_step_y * (tile.bl.y-bounds.bl.y) as f32 +
+            bary_step_x * (tile.bl.x-bounds.bl.x) as f32;
 
         for y in tile.bl.y..tile.tr.y {
             let mut bary = bary_row;
