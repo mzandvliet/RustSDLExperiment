@@ -30,6 +30,11 @@ mod tests {
         const HEIGHT: u32 = 32;
         let mut screen = Screen::new(WIDTH as usize, HEIGHT as usize);
 
+        let mut tile_cache = TileCache {
+            fast_tiles: Vec::with_capacity(16),
+            slow_tiles: Vec::with_capacity(16),
+        };
+
         let cam_mat = Mat4x4f::translation(0.0, 0.0, -8.0);
         let cam_inv = cam_mat.inverse();
 
@@ -47,7 +52,7 @@ mod tests {
 
         b.iter(|| {
             for _j in 1..10 {
-                draw_mesh(&mesh, &tex, &obj_mat, &cam_inv, &cam_proj, &mut screen);
+                draw_mesh(&mesh, &tex, &obj_mat, &cam_inv, &cam_proj, &mut screen, &mut tile_cache);
                 black_box(0);
             }
         });
@@ -59,6 +64,11 @@ mod tests {
         const HEIGHT: u32 = 300 * 4;
         let mut screen = Screen::new(WIDTH as usize, HEIGHT as usize);
 
+        let mut tile_cache = TileCache {
+            fast_tiles: Vec::with_capacity(16),
+            slow_tiles: Vec::with_capacity(16),
+        };
+
         let cam_mat = Mat4x4f::translation(0.0, 0.0, -8.0);
         let cam_inv = cam_mat.inverse();
 
@@ -76,7 +86,7 @@ mod tests {
 
         b.iter(|| {
             for _j in 1..10 {
-                draw_mesh(&mesh, &tex, &obj_mat, &cam_inv, &cam_proj, &mut screen);
+                draw_mesh(&mesh, &tex, &obj_mat, &cam_inv, &cam_proj, &mut screen, &mut tile_cache);
                 black_box(0);
             }
         });

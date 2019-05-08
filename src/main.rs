@@ -63,6 +63,11 @@ fn start_renderloop() -> Result<(), String> {
     // Create our cpu-side screen buffer
     let mut screen = Screen::new(WIDTH as usize, HEIGHT as usize);
 
+    let mut tile_cache = TileCache {
+        fast_tiles: Vec::with_capacity(16),
+        slow_tiles: Vec::with_capacity(16),
+    };
+
     // Load our cube mesh
     let mesh = create_cube();
 
@@ -132,9 +137,9 @@ fn start_renderloop() -> Result<(), String> {
         
         // let obj1_mat = Mat4x4f::identity();
         
-        draw_mesh(&mesh, &tex_sprite, &obj1_mat, &cam_inv, &cam_proj, &mut screen);
-        draw_mesh(&mesh, &tex_checker, &obj2_mat, &cam_inv, &cam_proj, &mut screen);
-        draw_mesh(&mesh, &tex_checker, &obj3_mat, &cam_inv, &cam_proj, &mut screen);
+        draw_mesh(&mesh, &tex_sprite, &obj1_mat, &cam_inv, &cam_proj, &mut screen, &mut tile_cache);
+        draw_mesh(&mesh, &tex_checker, &obj2_mat, &cam_inv, &cam_proj, &mut screen, &mut tile_cache);
+        draw_mesh(&mesh, &tex_checker, &obj3_mat, &cam_inv, &cam_proj, &mut screen, &mut tile_cache);
 
         // Copy screenbuffer to SDL texture
         texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {

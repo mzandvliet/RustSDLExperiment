@@ -31,6 +31,12 @@ pub struct Screen {
     pub depth: Vec<f32>,
     pub width: usize,
     pub height: usize,
+   
+}
+
+pub struct TileCache {
+    pub fast_tiles: Vec<BoundingBox>,
+    pub slow_tiles: Vec<BoundingBox>,
 }
 
 impl Screen {
@@ -134,7 +140,7 @@ impl Mesh {
     }
 }
 
-pub fn draw_mesh(mesh: &Mesh, tex: &Vec<Color>, transform: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f, screen: &mut Screen) {
+pub fn draw_mesh(mesh: &Mesh, tex: &Vec<Color>, transform: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f, screen: &mut Screen, tile_cache: &mut TileCache) {
     let verts = &mesh.verts;
     let tris = &mesh.tris;
     let uvs = &mesh.uvs;
@@ -142,6 +148,8 @@ pub fn draw_mesh(mesh: &Mesh, tex: &Vec<Color>, transform: &Mat4x4f, cam_inv: &M
     let num_tris = tris.len() / 3;
         for i in 0..num_tris {
             triangle(
+                screen,
+                tile_cache,
                 &verts[tris[i*3 + 0]],
                 &verts[tris[i*3 + 1]],
                 &verts[tris[i*3 + 2]],
@@ -151,8 +159,7 @@ pub fn draw_mesh(mesh: &Mesh, tex: &Vec<Color>, transform: &Mat4x4f, cam_inv: &M
                 tex,
                 transform,
                 cam_inv,
-                cam_proj,
-                screen);
+                cam_proj);
         }
 }
 
@@ -283,11 +290,13 @@ pub fn line(screen: &mut Screen, a: Vec2i, b: Vec2i, color: &Color) {
 }
 
 pub fn triangle(
+    screen: &mut Screen,
+    tile_cache: &mut TileCache,
     p1: &Vec4f, p2: &Vec4f, p3: &Vec4f,
     uv1: &Vec2f, uv2: &Vec2f, uv3: &Vec2f,
     tex: &Vec<Color>,
-    obj_mat: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f,
-    screen: &mut Screen) {
+    obj_mat: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f) {
+
     // Todo: 
     // - split this into multiple stages, of course, and
     // - loop over a list of points instead
@@ -337,6 +346,7 @@ pub fn triangle(
 
         triangle_textured(
             screen,
+            tile_cache,
             &tri,
             uv1, uv2, uv3,
             tex,
@@ -365,10 +375,12 @@ pub fn triangle_wired(screen: &mut Screen, a: &Vec4f, b: &Vec4f, c: &Vec4f, colo
 
 pub fn triangle_textured(
     screen: &mut Screen,
+    tile_cache: &mut TileCache,
     tri: &Triangle,
     a_uv: &Vec2f, b_uv: &Vec2f, c_uv: &Vec2f,
     tex: &Vec<Color>,
     l_dot_n: f32) {
+
     let screen_dims = Vec2i::new(screen.width as i32, screen.height as i32);
 
     // println!("{:?}", to_camspace(&Vec2i::new(screen_dims.x,screen_dims.y), &screen_dims));
@@ -409,96 +421,107 @@ pub fn triangle_textured(
         signed_area_step_y(step_y, &tri.a, &tri.b),
     );
 
+    tile_cache.fast_tiles.clear();
+    tile_cache.slow_tiles.clear();
+
     // Here we iterate over the bounding area of the triangle in n*n tiles
     // If all corners or a tile fall within a triangle, we can skip the
     // edge tests for all the pixels inside it.
     //
     // Todo: if none of the corners fall in the triangle, skip the tile
     // entirely
-    for tile in bounds.iter(8) {
+    for tile in bounds.iter(16) {
         if triangle_contains_box(tri, &edges, &tile, &screen_dims) {
-            // Fast path
-
-            // Full barycentric coordinate calculation for bottom-left pixel coordinate
-            let pix_camspace_bl = to_camspace(&Vec2i::new(tile.bl.x,tile.bl.y), &screen_dims);
-
-            let mut bary_row = Vec3f::new(
-                signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
-                signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
-                signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
-            );
-
-            for y in (tile.bl).y..(tile.tr).y {
-                let mut bary = bary_row;
-
-                for x in (tile.bl).x..(tile.tr).x {
-                    shade(
-                        tri,
-                        a_uv, b_uv, c_uv,
-                        &bary,
-                        tex,
-                        screen,
-                        l_dot_n,
-                        x as usize,
-                        y as usize
-                    );
-
-                    // Step barycentric coordinates 1 pixel along x
-                    bary = bary + bary_step_x;
-                }
-
-                // Step barycentric coordinates 1 pixel along y
-                bary_row = bary_row + bary_step_y;
-            }
+            tile_cache.fast_tiles.push(tile);
         }
         else {
-            // Slow path
-            
-            // Full barycentric coordinate calculation for bottom-left pixel coordinate
-            let pix_camspace_bl = to_camspace(&Vec2i::new(tile.bl.x,tile.bl.y), &screen_dims);
-
-            let mut bary_row = Vec3f::new(
-                signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
-                signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
-                signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
-            );
-
-            for y in (tile.bl).y..(tile.tr).y {
-                let mut bary = bary_row;
-
-                for x in (tile.bl).x..(tile.tr).x {
-                    let mut inside: bool = true;
-
-                    /*
-                    If all three edge tests are positive, or we're a pixel right
-                    on the edge of a top-left triangle, then we rasterize
-                    */
-                    test_topleft(&edges.a, bary.x, &mut inside);
-                    test_topleft(&edges.b, bary.y, &mut inside);
-                    test_topleft(&edges.c, bary.z, &mut inside);
-
-                    if inside {
-                        shade(
-                            tri,
-                            a_uv, b_uv, c_uv,
-                            &bary,
-                            tex,
-                            screen,
-                            l_dot_n,
-                            x as usize,
-                            y as usize
-                        );
-                    }
-
-                    // Step barycentric coordinates 1 pixel along x
-                    bary = bary + bary_step_x;
-                }
-
-                // Step barycentric coordinates 1 pixel along y
-                bary_row = bary_row + bary_step_y;
-            }
+            tile_cache.slow_tiles.push(tile);
         }
     }
+
+    for tile in &tile_cache.fast_tiles {
+        // Fast path
+
+        // Full barycentric coordinate calculation for bottom-left pixel coordinate
+        let pix_camspace_bl = to_camspace(&Vec2i::new(tile.bl.x,tile.bl.y), &screen_dims);
+
+        let mut bary_row = Vec3f::new(
+            signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
+            signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
+            signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
+        );
+
+        for y in (tile.bl).y..(tile.tr).y {
+            let mut bary = bary_row;
+
+            for x in (tile.bl).x..(tile.tr).x {
+                shade(
+                    tri,
+                    a_uv, b_uv, c_uv,
+                    &bary,
+                    tex,
+                    screen,
+                    l_dot_n,
+                    x as usize,
+                    y as usize
+                );
+
+                // Step barycentric coordinates 1 pixel along x
+                bary = bary + bary_step_x;
+            }
+
+            // Step barycentric coordinates 1 pixel along y
+            bary_row = bary_row + bary_step_y;
+        }
+    }
+
+    // for tile in &tile_cache.slow_tiles {
+    //     // Slow path
+            
+    //     // Full barycentric coordinate calculation for bottom-left pixel coordinate
+    //     let pix_camspace_bl = to_camspace(&Vec2i::new(tile.bl.x,tile.bl.y), &screen_dims);
+
+    //     let mut bary_row = Vec3f::new(
+    //         signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
+    //         signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
+    //         signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
+    //     );
+
+    //     for y in (tile.bl).y..(tile.tr).y {
+    //         let mut bary = bary_row;
+
+    //         for x in (tile.bl).x..(tile.tr).x {
+    //             let mut inside: bool = true;
+
+    //             /*
+    //             If all three edge tests are positive, or we're a pixel right
+    //             on the edge of a top-left triangle, then we rasterize
+    //             */
+    //             test_topleft(&edges.a, bary.x, &mut inside);
+    //             test_topleft(&edges.b, bary.y, &mut inside);
+    //             test_topleft(&edges.c, bary.z, &mut inside);
+
+    //             if inside {
+    //                 shade(
+    //                     tri,
+    //                     a_uv, b_uv, c_uv,
+    //                     &bary,
+    //                     tex,
+    //                     screen,
+    //                     l_dot_n,
+    //                     x as usize,
+    //                     y as usize
+    //                 );
+    //             }
+
+    //             // Step barycentric coordinates 1 pixel along x
+    //             bary = bary + bary_step_x;
+    //         }
+
+    //         // Step barycentric coordinates 1 pixel along y
+    //         bary_row = bary_row + bary_step_y;
+    //     }
+    // }
 }
 
 fn shade(
