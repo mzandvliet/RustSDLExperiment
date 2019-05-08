@@ -409,11 +409,16 @@ pub fn triangle_textured(
         signed_area_step_y(step_y, &tri.a, &tri.b),
     );
 
-    // Todo:
-    // And now some fancy iter logic to loop over the aabb in terms
-    // of 8x8 sub-aabbs...
+    // Here we iterate over the bounding area of the triangle in n*n tiles
+    // If all corners or a tile fall within a triangle, we can skip the
+    // edge tests for all the pixels inside it.
+    //
+    // Todo: if none of the corners fall in the triangle, skip the tile
+    // entirely
     for tile in bounds.iter(8) {
         if triangle_contains_box(tri, &edges, &tile, &screen_dims) {
+            // Fast path
+
             // Full barycentric coordinate calculation for bottom-left pixel coordinate
             let pix_camspace_bl = to_camspace(&Vec2i::new(tile.bl.x,tile.bl.y), &screen_dims);
 
@@ -445,7 +450,10 @@ pub fn triangle_textured(
                 // Step barycentric coordinates 1 pixel along y
                 bary_row = bary_row + bary_step_y;
             }
-        } else {
+        }
+        else {
+            // Slow path
+            
             // Full barycentric coordinate calculation for bottom-left pixel coordinate
             let pix_camspace_bl = to_camspace(&Vec2i::new(tile.bl.x,tile.bl.y), &screen_dims);
 
@@ -465,7 +473,6 @@ pub fn triangle_textured(
                     If all three edge tests are positive, or we're a pixel right
                     on the edge of a top-left triangle, then we rasterize
                     */
-
                     test_topleft(&edges.a, bary.x, &mut inside);
                     test_topleft(&edges.b, bary.y, &mut inside);
                     test_topleft(&edges.c, bary.z, &mut inside);
