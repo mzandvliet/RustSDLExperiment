@@ -64,8 +64,8 @@ fn start_renderloop() -> Result<(), String> {
     let mut screen = Screen::new(WIDTH as usize, HEIGHT as usize);
 
     let mut tile_cache = TileCache {
-        fast_tiles: Vec::with_capacity(16),
-        slow_tiles: Vec::with_capacity(16),
+        fast_tiles: Vec::with_capacity(64),
+        slow_tiles: Vec::with_capacity(64),
     };
 
     // Load our cube mesh
