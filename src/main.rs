@@ -116,6 +116,8 @@ fn start_renderloop() -> Result<(), String> {
         let cam = Mat4x4f::translation(0.0, 0.0, -8.0);
         let cam_inv = cam.inverse();
 
+        let cam_mat = cam_proj * cam_inv;
+
         // Let's draw some cubes
 
         // rotate and translate it in world space
@@ -137,9 +139,9 @@ fn start_renderloop() -> Result<(), String> {
         
         // let obj1_mat = Mat4x4f::identity();
         
-        draw_mesh(&mesh, &tex_sprite, &obj1_mat, &cam_inv, &cam_proj, &mut screen, &mut tile_cache);
-        draw_mesh(&mesh, &tex_checker, &obj2_mat, &cam_inv, &cam_proj, &mut screen, &mut tile_cache);
-        draw_mesh(&mesh, &tex_checker, &obj3_mat, &cam_inv, &cam_proj, &mut screen, &mut tile_cache);
+        draw_mesh(&mesh, &tex_sprite, &obj1_mat, &cam_mat, &mut screen, &mut tile_cache);
+        draw_mesh(&mesh, &tex_checker, &obj2_mat, &cam_mat, &mut screen, &mut tile_cache);
+        draw_mesh(&mesh, &tex_checker, &obj3_mat, &cam_mat, &mut screen, &mut tile_cache);
 
         // Copy screenbuffer to SDL texture
         texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {

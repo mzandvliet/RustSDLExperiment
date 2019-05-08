@@ -140,29 +140,6 @@ impl Mesh {
     }
 }
 
-pub fn draw_mesh(mesh: &Mesh, tex: &Vec<Color>, transform: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f, screen: &mut Screen, tile_cache: &mut TileCache) {
-    let verts = &mesh.verts;
-    let tris = &mesh.tris;
-    let uvs = &mesh.uvs;
-
-    let num_tris = tris.len() / 3;
-        for i in 0..num_tris {
-            triangle(
-                screen,
-                tile_cache,
-                &verts[tris[i*3 + 0]],
-                &verts[tris[i*3 + 1]],
-                &verts[tris[i*3 + 2]],
-                &uvs[i*3 + 0],
-                &uvs[i*3 + 1],
-                &uvs[i*3 + 2],
-                tex,
-                transform,
-                cam_inv,
-                cam_proj);
-        }
-}
-
 // Todo: unsigned types
 #[derive(Debug, Copy, Clone)]
 pub struct BoundingBox {
@@ -289,13 +266,35 @@ pub fn line(screen: &mut Screen, a: Vec2i, b: Vec2i, color: &Color) {
     }
 }
 
+pub fn draw_mesh(mesh: &Mesh, tex: &Vec<Color>, transform: &Mat4x4f, cam: &Mat4x4f, screen: &mut Screen, tile_cache: &mut TileCache) {
+    let verts = &mesh.verts;
+    let tris = &mesh.tris;
+    let uvs = &mesh.uvs;
+
+    let num_tris = tris.len() / 3;
+        for i in 0..num_tris {
+            triangle(
+                screen,
+                tile_cache,
+                &verts[tris[i*3 + 0]],
+                &verts[tris[i*3 + 1]],
+                &verts[tris[i*3 + 2]],
+                &uvs[i*3 + 0],
+                &uvs[i*3 + 1],
+                &uvs[i*3 + 2],
+                tex,
+                transform,
+                cam);
+        }
+}
+
 pub fn triangle(
     screen: &mut Screen,
     tile_cache: &mut TileCache,
     p1: &Vec4f, p2: &Vec4f, p3: &Vec4f,
     uv1: &Vec2f, uv2: &Vec2f, uv3: &Vec2f,
     tex: &Vec<Color>,
-    obj_mat: &Mat4x4f, cam_inv: &Mat4x4f, cam_proj: &Mat4x4f) {
+    obj_mat: &Mat4x4f, cam: &Mat4x4f,) {
 
     // Todo: 
     // - split this into multiple stages, of course, and
@@ -318,14 +317,9 @@ pub fn triangle(
 
         // Todo: premultiply cam/proj mats
         // World to camera space
-        let p1 = *cam_inv * p1;
-        let p2 = *cam_inv * p2;
-        let p3 = *cam_inv * p3;
-
-        // Projection
-        let p1 = *cam_proj * p1;
-        let p2 = *cam_proj * p2;
-        let p3 = *cam_proj * p3;
+        let p1 = *cam * p1;
+        let p2 = *cam * p2;
+        let p3 = *cam * p3;
         
         // Normalize x,y,z by w to get valid point
         let mut p1 = Vec4f::norm_by_w(&p1);
@@ -525,6 +519,7 @@ pub fn triangle_textured(
     }
 }
 
+// Todo: separate z testing from shading
 fn shade(
     tri: &Triangle,
     a_uv: &Vec2f, b_uv: &Vec2f, c_uv: &Vec2f,

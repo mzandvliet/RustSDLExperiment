@@ -43,6 +43,7 @@ mod tests {
         let fov: f32 = 80.0;
         let aspect: f32 =  HEIGHT as f32 / WIDTH as f32;
         let cam_proj = Mat4x4f::projection(near, far, aspect, fov);
+        let cam_mat = cam_proj * cam_inv;
 
         let obj_mat = Mat4x4f::identity();
         
@@ -52,7 +53,7 @@ mod tests {
 
         b.iter(|| {
             for _j in 1..10 {
-                draw_mesh(&mesh, &tex, &obj_mat, &cam_inv, &cam_proj, &mut screen, &mut tile_cache);
+                draw_mesh(&mesh, &tex, &obj_mat, &cam_mat, &mut screen, &mut tile_cache);
                 black_box(0);
             }
         });
@@ -77,6 +78,7 @@ mod tests {
         let fov: f32 = 80.0;
         let aspect: f32 =  HEIGHT as f32 / WIDTH as f32;
         let cam_proj = Mat4x4f::projection(near, far, aspect, fov);
+        let cam_mat = cam_proj * cam_inv;
 
         let obj_mat = Mat4x4f::identity();
         
@@ -86,7 +88,7 @@ mod tests {
 
         b.iter(|| {
             for _j in 1..10 {
-                draw_mesh(&mesh, &tex, &obj_mat, &cam_inv, &cam_proj, &mut screen, &mut tile_cache);
+                draw_mesh(&mesh, &tex, &obj_mat, &cam_mat, &mut screen, &mut tile_cache);
                 black_box(0);
             }
         });
