@@ -432,51 +432,50 @@ pub fn triangle_textured(
     // entirely
     for tile in bounds.iter(8) {
         match triangle_box_edge_overlaps(tri, &edges, &tile, &screen_dims) {
-            // 4 => tile_cache.fast_tiles.push(tile),
-            0...4 => tile_cache.slow_tiles.push(tile),
+            4 => tile_cache.fast_tiles.push(tile),
+            0...3 => tile_cache.slow_tiles.push(tile),
             _ => ()
         }
     }
+    
+    // let tile_count = ((bounds.tr.x - bounds.bl.x) / 8 + 1) * ((bounds.tr.y - bounds.bl.y) / 8 + 1);
+    // println!("{}, {}, {}", tile_count, tile_cache.fast_tiles.len(), tile_cache.slow_tiles.len());
 
-    let tile_count = ((bounds.tr.x - bounds.bl.x) / 8 + 1) * ((bounds.tr.y - bounds.bl.y) / 8 + 1);
+    for tile in &tile_cache.fast_tiles {
+        // Fast path
 
-    println!("{}, {}, {}", tile_count, tile_cache.fast_tiles.len(), tile_cache.slow_tiles.len());
+        // Full barycentric coordinate calculation for bottom-left pixel coordinate
+        let pix_camspace_bl = to_camspace(&Vec2i::new(tile.bl.x,tile.bl.y), &screen_dims);
 
-    // for tile in &tile_cache.fast_tiles {
-    //     // Fast path
+        let mut bary_row = Vec3f::new(
+            signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
+            signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
+            signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
+        );
 
-    //     // Full barycentric coordinate calculation for bottom-left pixel coordinate
-    //     let pix_camspace_bl = to_camspace(&Vec2i::new(tile.bl.x,tile.bl.y), &screen_dims);
+        for y in tile.bl.y..tile.tr.y {
+            let mut bary = bary_row;
 
-    //     let mut bary_row = Vec3f::new(
-    //         signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
-    //         signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
-    //         signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
-    //     );
+            for x in tile.bl.x..tile.tr.x {
+                shade(
+                    tri,
+                    a_uv, b_uv, c_uv,
+                    &bary,
+                    tex,
+                    screen,
+                    l_dot_n,
+                    x as usize,
+                    y as usize
+                );
 
-    //     for y in (tile.bl).y..(tile.tr).y {
-    //         let mut bary = bary_row;
+                // Step barycentric coordinates 1 pixel along x
+                bary = bary + bary_step_x;
+            }
 
-    //         for x in (tile.bl).x..(tile.tr).x {
-    //             shade(
-    //                 tri,
-    //                 a_uv, b_uv, c_uv,
-    //                 &bary,
-    //                 tex,
-    //                 screen,
-    //                 l_dot_n,
-    //                 x as usize,
-    //                 y as usize
-    //             );
-
-    //             // Step barycentric coordinates 1 pixel along x
-    //             bary = bary + bary_step_x;
-    //         }
-
-    //         // Step barycentric coordinates 1 pixel along y
-    //         bary_row = bary_row + bary_step_y;
-    //     }
-    // }
+            // Step barycentric coordinates 1 pixel along y
+            bary_row = bary_row + bary_step_y;
+        }
+    }
 
     for tile in &tile_cache.slow_tiles {
         // Slow path
@@ -490,10 +489,10 @@ pub fn triangle_textured(
             signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
         );
 
-        for y in (tile.bl).y..(tile.tr).y {
+        for y in tile.bl.y..tile.tr.y {
             let mut bary = bary_row;
 
-            for x in (tile.bl).x..(tile.tr).x {
+            for x in tile.bl.x..tile.tr.x {
                 let mut inside: bool = true;
 
                 /*
