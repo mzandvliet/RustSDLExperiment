@@ -26,8 +26,8 @@ use resources::*;
 
 fn main() {
     let aabb = BoundingBox {
-        bot_left: Vec2i::new(0,0),
-        top_right: Vec2i::new(128, 128),
+        bot_left: Vec2i::new(20,24),
+        top_right: Vec2i::new(126, 127),
     };
 
     for b in aabb.iter(8) {

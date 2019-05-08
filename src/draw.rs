@@ -168,8 +168,8 @@ impl BoundingBox {
         BoundingBoxIterator {
             bounds: *self,
             step: step,
-            x_count: 0,
-            y_count: 0,
+            x: self.bot_left.x,
+            y_count: self.bot_left.y,
         }
     }
 }
@@ -177,7 +177,7 @@ impl BoundingBox {
 pub struct BoundingBoxIterator {
     pub bounds: BoundingBox,
     pub step: i32,
-    x_count: i32,
+    x: i32,
     y_count: i32
 }
 
@@ -186,13 +186,17 @@ impl Iterator for BoundingBoxIterator {
 
     fn next(&mut self) -> Option<BoundingBox> {
         let result = Some(BoundingBox { 
-            bot_left: Vec2i::new(self.x_count, self.y_count),
-            top_right: Vec2i::new(self.x_count+ self.step, self.y_count + self.step),
+            bot_left: Vec2i::new(
+                self.x,
+                self.y_count),
+            top_right: Vec2i::new(
+                i32::min(self.x + self.step, self.bounds.top_right.x),
+                i32::min(self.y_count + self.step, self.bounds.top_right.y)),
         });
 
-        self.x_count += self.step;
-        if self.x_count > self.bounds.top_right.x {
-            self.x_count = 0;
+        self.x += self.step;
+        if self.x > self.bounds.top_right.x {
+            self.x = self.bounds.bot_left.x;
             self.y_count += self.step;
         }
 
