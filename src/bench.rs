@@ -30,11 +30,6 @@ mod tests {
         const HEIGHT: u32 = 32;
         let mut screen = Screen::new(WIDTH as usize, HEIGHT as usize);
 
-        let mut tile_cache = TileCache {
-            fast_tiles: Vec::with_capacity(16),
-            slow_tiles: Vec::with_capacity(16),
-        };
-
         let cam_mat = Mat4x4f::translation(0.0, 0.0, -8.0);
         let cam_inv = cam_mat.inverse();
 
@@ -45,7 +40,10 @@ mod tests {
         let cam_proj = Mat4x4f::projection(near, far, aspect, fov);
         let cam_mat = cam_proj * cam_inv;
 
-        let obj_mat = Mat4x4f::identity();
+        let time = 0.5;
+        let obj_mat = Mat4x4f::translation(0.0, f32::sin(time * 1.0) * 1.0, 0.0) *
+            Mat4x4f::rotation_y(f32::sin(time * 3.0) * 1.0) *
+            Mat4x4f::rotation_x(f32::sin(time * 1.333) * 1.0);
         
         let tex = load_texture(String::from("resources/test.png")).unwrap();
 
@@ -53,7 +51,7 @@ mod tests {
 
         b.iter(|| {
             for _j in 1..10 {
-                draw_mesh(&mesh, &tex, &obj_mat, &cam_mat, &mut screen, &mut tile_cache);
+                draw_mesh(&mesh, &tex, &obj_mat, &cam_mat, &mut screen);
                 black_box(0);
             }
         });
@@ -65,11 +63,6 @@ mod tests {
         const HEIGHT: u32 = 300 * 4;
         let mut screen = Screen::new(WIDTH as usize, HEIGHT as usize);
 
-        let mut tile_cache = TileCache {
-            fast_tiles: Vec::with_capacity(16),
-            slow_tiles: Vec::with_capacity(16),
-        };
-
         let cam_mat = Mat4x4f::translation(0.0, 0.0, -8.0);
         let cam_inv = cam_mat.inverse();
 
@@ -80,7 +73,10 @@ mod tests {
         let cam_proj = Mat4x4f::projection(near, far, aspect, fov);
         let cam_mat = cam_proj * cam_inv;
 
-        let obj_mat = Mat4x4f::identity();
+        let time = 0.5;
+        let obj_mat = Mat4x4f::translation(0.0, f32::sin(time * 1.0) * 1.0, 0.0) *
+            Mat4x4f::rotation_y(f32::sin(time * 3.0) * 1.0) *
+            Mat4x4f::rotation_x(f32::sin(time * 1.333) * 1.0);
         
         let tex = load_texture(String::from("resources/test.png")).unwrap();
 
@@ -88,7 +84,7 @@ mod tests {
 
         b.iter(|| {
             for _j in 1..10 {
-                draw_mesh(&mesh, &tex, &obj_mat, &cam_mat, &mut screen, &mut tile_cache);
+                draw_mesh(&mesh, &tex, &obj_mat, &cam_mat, &mut screen);
                 black_box(0);
             }
         });

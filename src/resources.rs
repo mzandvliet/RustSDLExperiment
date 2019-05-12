@@ -6,10 +6,7 @@ use crate::linalg::*;
 
 pub fn load_texture(path: String) -> Result<Vec<Color>,String> {
     let img = image::open(path).map_err(|e| e.to_string())?;
-
     let dims = img.dimensions();
-    println!("image dimensions: {:?}", dims);
-
     let mut tex: Vec<Color> = Vec::with_capacity((dims.0 * dims.1) as usize);
 
     for x in 0..dims.0 {

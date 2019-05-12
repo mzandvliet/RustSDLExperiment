@@ -36,6 +36,48 @@ use std::ops::*;
 use float_cmp::{Ulps, ApproxEq};
 
 /*--------------------
+    Vec2i
+--------------------*/ 
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
+pub struct Vec2i {
+    pub x: i32,
+    pub y: i32
+}
+
+impl Vec2i {
+    pub fn new(x: i32, y: i32) -> Vec2i {
+        Vec2i {
+            x: x,
+            y: y,
+        }
+    }
+}
+
+impl Add for Vec2i {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Vec2i {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
+    }
+}
+
+impl Sub for Vec2i{
+    
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        Vec2i {
+            x: self.x - other.x,
+            y: self.y - other.y,
+        }
+    }
+}
+
+/*--------------------
     Vec2f
 --------------------*/ 
 
