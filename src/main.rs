@@ -38,10 +38,10 @@ fn main() {
 }
 
 fn start_renderloop() -> Result<(), String> {
-    // const WIDTH: u32 = 400 * 4;
-    // const HEIGHT: u32 = 300 * 4;
-    const WIDTH: u32 = 400;
-    const HEIGHT: u32 = 300;
+    const WIDTH: u32 = 400 * 4;
+    const HEIGHT: u32 = 300 * 4;
+    // const WIDTH: u32 = 400;
+    // const HEIGHT: u32 = 300;
     // const WIDTH: u32 = 64;
     // const HEIGHT: u32 = 64;
 
@@ -144,8 +144,8 @@ fn start_renderloop() -> Result<(), String> {
         // let obj1_mat = Mat4x4f::identity();
         
         draw_mesh(&mesh, &tex_sprite, &obj1_mat, &cam_mat, &mut screen);
-        draw_mesh(&mesh, &tex_checker, &obj2_mat, &cam_mat, &mut screen);
-        draw_mesh(&mesh, &tex_checker, &obj3_mat, &cam_mat, &mut screen);
+        // draw_mesh(&mesh, &tex_checker, &obj2_mat, &cam_mat, &mut screen);
+        // draw_mesh(&mesh, &tex_checker, &obj3_mat, &cam_mat, &mut screen);
 
         // Copy screenbuffer to SDL texture
         texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {

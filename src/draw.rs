@@ -141,6 +141,14 @@ impl BoundingBox {
             y: self.bl.y,
         }
     }
+
+    pub fn width(&self) -> i32 {
+        self.tr.x - self.bl.x
+    }
+
+    pub fn height(&self) -> i32 {
+        self.tr.y - self.bl.y
+    }
 }
 
 pub struct BoundingBoxIterator {
@@ -399,7 +407,7 @@ pub fn triangle_textured(
     // Full barycentric coordinate calculation for bottom-left pixel coordinate
     let pix_camspace_bl = screen_to_camspace(&Vec2i::new(bounds.bl.x,bounds.bl.y), &screen_dims);
 
-    let bary_bl = Vec3f::new(
+    let bounds_bary_bl = Vec3f::new(
         signed_area(&tri.b, &tri.c, &pix_camspace_bl) * tri_area_inv,
         signed_area(&tri.c, &tri.a, &pix_camspace_bl) * tri_area_inv,
         signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
@@ -415,12 +423,14 @@ pub fn triangle_textured(
     // lie within tri, but perversely it made things much slower to have
     // a fast path and a slow path within this function that renders a single
     // triangle...
-    for tile in bounds.iter_sub_boxes(32) {
-        match triangle_box_corner_overlaps(tri, &edges, &tile, &screen_dims) {
+    for tile in bounds.iter_sub_boxes(16) {
+        let tile_bary_bl = bounds_bary_bl +
+            bary_step_y * (tile.bl.y-bounds.bl.y) as f32 +
+            bary_step_x * (tile.bl.x-bounds.bl.x) as f32;
+
+        match count_triangle_box_corner_overlaps(&tile, &edges, &tile_bary_bl, &bary_step_x, &bary_step_y) {
             1...4 => {
-                let mut bary_row = bary_bl +
-                    bary_step_y * (tile.bl.y-bounds.bl.y) as f32 +
-                    bary_step_x * (tile.bl.x-bounds.bl.x) as f32;
+                let mut bary_row = tile_bary_bl;
 
                 for y in tile.bl.y..tile.tr.y {
                     let mut bary = bary_row;
@@ -456,6 +466,8 @@ pub fn triangle_textured(
                     bary_row = bary_row + bary_step_y;
                 }
             },
+            // 4 => rect(screen, &tile.bl, &tile.tr, Color::green()),
+            // 1...3 => rect(screen, &tile.bl, &tile.tr, Color::red()),
             _ => ()
         }
     }
@@ -486,8 +498,7 @@ fn z_test_and_shade(
 
         let uv = uv * z;
 
-        // let shaded_color = shade(&uv, tex, l_dot_n);
-        let shaded_color = Color::blue();
+        let shaded_color = shade(&uv, tex, l_dot_n);
 
         set_color(screen, x as usize, y as usize, &shaded_color);
         set_depth(screen, x as usize, y as usize, z);
@@ -512,33 +523,22 @@ fn shade(uv: &Vec2f, tex: &Vec<Color>, l_dot_n: f32) -> Color {
         (albedo.b as f32 * brightness) as u8)
 }
 
-//bary_step_x: &Vec3f, bary_step_y: &Vec3f
-fn triangle_box_corner_overlaps(tri: &Triangle, edges: &Triangle, bounds: &BoundingBox, screen_dims: &Vec2i) -> u8 {
-    // Todo: pass in precalculated values
-    let tri_area_inv = 1.0 / signed_area(&tri.a, &tri.b, &tri.c);
+fn count_triangle_box_corner_overlaps(bounds: &BoundingBox, edges: &Triangle, bary_bl: &Vec3f, bary_step_x: &Vec3f, bary_step_y: &Vec3f) -> u8 {
+    let bary_tl =  *bary_bl + *bary_step_y * bounds.height() as f32;
+    let bary_br =  *bary_bl + *bary_step_x * bounds.width() as f32;
+    let bary_tr =  bary_br + *bary_step_y * bounds.height() as f32;
 
-    let bot_left  = screen_to_camspace(&Vec2i::new(bounds.bl.x,bounds.bl.y), &screen_dims);
-    let top_left  = screen_to_camspace(&Vec2i::new(bounds.bl.x,bounds.tr.y), &screen_dims);
-    let bot_right = screen_to_camspace(&Vec2i::new(bounds.tr.x,bounds.bl.y), &screen_dims);
-    let top_right = screen_to_camspace(&Vec2i::new(bounds.tr.x,bounds.tr.y), &screen_dims);
+    let mut overlap_count: u8 = 0;
+    if is_point_inside_triangle(&edges, bary_bl) { overlap_count += 1; }
+    if is_point_inside_triangle(&edges, &bary_tl) { overlap_count += 1; }
+    if is_point_inside_triangle(&edges, &bary_br) { overlap_count += 1; }
+    if is_point_inside_triangle(&edges, &bary_tr) { overlap_count += 1; }
 
-    let mut edge_overlap_count: u8 = 0;
-    if is_point_inside_triangle(tri, &edges, tri_area_inv, &bot_left) { edge_overlap_count += 1; }
-    if is_point_inside_triangle(tri, &edges, tri_area_inv, &top_left) { edge_overlap_count += 1; }
-    if is_point_inside_triangle(tri, &edges, tri_area_inv, &bot_right) { edge_overlap_count += 1; }
-    if is_point_inside_triangle(tri, &edges, tri_area_inv, &top_right) { edge_overlap_count += 1; }
-
-    edge_overlap_count
+    overlap_count
 }
 
 // Todo: use the optimized way to calculate the barycentric coords
-fn is_point_inside_triangle(tri: &Triangle, edges: &Triangle, tri_area_inv: f32, pix_camspace: &Vec4f) -> bool {
-    let bary = Vec3f::new(
-        signed_area(&tri.b, &tri.c, &pix_camspace) * tri_area_inv,
-        signed_area(&tri.c, &tri.a, &pix_camspace) * tri_area_inv,
-        signed_area(&tri.a, &tri.b, &pix_camspace) * tri_area_inv
-    );
-
+fn is_point_inside_triangle(edges: &Triangle, bary: &Vec3f) -> bool {
     let mut inside: bool = true;
 
     test_topleft(&edges.a, bary.x, &mut inside);
@@ -673,6 +673,18 @@ pub fn circle(screen: &mut Screen, a: (i32, i32), radius: i32, color: &Color) {
 
         if x > 0 {
             break;
+        }
+    }
+}
+
+pub fn rect(screen: &mut Screen, bl: &Vec2i, tr: &Vec2i, color: Color) {
+    let pitch = screen.width * 3;
+    for y in bl.y..tr.y {
+        for x in bl.x..tr.x {
+            let offset = y as usize * pitch + x as usize * 3;
+            screen.color[offset] = color.r;
+            screen.color[offset +1] = color.g;
+            screen.color[offset +2] = color.b;
         }
     }
 }

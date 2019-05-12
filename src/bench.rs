@@ -41,9 +41,7 @@ mod tests {
         let cam_mat = cam_proj * cam_inv;
 
         let time = 0.5;
-        let obj_mat = Mat4x4f::translation(0.0, f32::sin(time * 1.0) * 1.0, 0.0) *
-            Mat4x4f::rotation_y(f32::sin(time * 3.0) * 1.0) *
-            Mat4x4f::rotation_x(f32::sin(time * 1.333) * 1.0);
+        let obj_mat = Mat4x4f::identity();
         
         let tex = load_texture(String::from("resources/test.png")).unwrap();
 
@@ -74,9 +72,7 @@ mod tests {
         let cam_mat = cam_proj * cam_inv;
 
         let time = 0.5;
-        let obj_mat = Mat4x4f::translation(0.0, f32::sin(time * 1.0) * 1.0, 0.0) *
-            Mat4x4f::rotation_y(f32::sin(time * 3.0) * 1.0) *
-            Mat4x4f::rotation_x(f32::sin(time * 1.333) * 1.0);
+        let obj_mat = Mat4x4f::identity();
         
         let tex = load_texture(String::from("resources/test.png")).unwrap();
 
