@@ -128,7 +128,7 @@ impl Mesh {
 // Todo: unsigned types
 #[derive(Debug, Copy, Clone)]
 pub struct BoundingBox {
-    pub bl:  Vec2i, // bottom left
+    pub bl: Vec2i, // bottom left
     pub tr: Vec2i, // top right
 }
 
@@ -144,8 +144,8 @@ impl BoundingBox {
 }
 
 pub struct BoundingBoxIterator {
-    pub bounds: BoundingBox,
-    pub step: i32,
+    bounds: BoundingBox,
+    step: i32,
     x: i32,
     y: i32
 }
@@ -153,15 +153,16 @@ pub struct BoundingBoxIterator {
 impl Iterator for BoundingBoxIterator {
     type Item = BoundingBox;
 
+    // Bug: we're stopping short of the last valid box
     fn next(&mut self) -> Option<BoundingBox> {
-        let result = Some(BoundingBox { 
+        let result = BoundingBox { 
             bl: Vec2i::new(
                 self.x,
                 self.y),
             tr: Vec2i::new(
                 i32::min(self.x + self.step, self.bounds.tr.x),
                 i32::min(self.y + self.step, self.bounds.tr.y)),
-        });
+        };
 
         self.x += self.step;
         if self.x > self.bounds.tr.x {
@@ -169,10 +170,10 @@ impl Iterator for BoundingBoxIterator {
             self.y += self.step;
         }
 
-        if self.y > self.bounds.tr.y {
+        if result.bl.y > self.bounds.tr.y {
             None
         } else {
-            result
+            Some(result)
         }
     }
 }
@@ -404,6 +405,9 @@ pub fn triangle_textured(
         signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
     );
 
+    // BUG! triangle_box_corner_overlaps isn't performing properly
+    // todo: debug overlap test results visually
+
     // Here we iterate over the bounding area of the triangle in n*n tiles
     // If no corners overlap triangle, we can skip it.
     //
@@ -411,87 +415,49 @@ pub fn triangle_textured(
     // lie within tri, but perversely it made things much slower to have
     // a fast path and a slow path within this function that renders a single
     // triangle...
-    // for tile in bounds.iter_sub_boxes(32) {
-    //     match triangle_box_corner_overlaps(tri, &edges, &tile, &screen_dims) {
-    //         1...4 => {
-    //             let mut bary_row = bary_bl +
-    //                 bary_step_y * (tile.bl.y-bounds.bl.y) as f32 +
-    //                 bary_step_x * (tile.bl.x-bounds.bl.x) as f32;
+    for tile in bounds.iter_sub_boxes(32) {
+        match triangle_box_corner_overlaps(tri, &edges, &tile, &screen_dims) {
+            1...4 => {
+                let mut bary_row = bary_bl +
+                    bary_step_y * (tile.bl.y-bounds.bl.y) as f32 +
+                    bary_step_x * (tile.bl.x-bounds.bl.x) as f32;
 
-    //             for y in tile.bl.y..tile.tr.y {
-    //                 let mut bary = bary_row;
+                for y in tile.bl.y..tile.tr.y {
+                    let mut bary = bary_row;
 
-    //                 for x in tile.bl.x..tile.tr.x {
-    //                     let mut inside: bool = true;
+                    for x in tile.bl.x..tile.tr.x {
+                        /*
+                        If all three edge tests are positive, or we're a pixel right
+                        on the edge of a top-left triangle, then we rasterize
+                        */
+                        let mut inside: bool = true;
+                        test_topleft(&edges.a, bary.x, &mut inside);
+                        test_topleft(&edges.b, bary.y, &mut inside);
+                        test_topleft(&edges.c, bary.z, &mut inside);
 
-    //                     /*
-    //                     If all three edge tests are positive, or we're a pixel right
-    //                     on the edge of a top-left triangle, then we rasterize
-    //                     */
-    //                     test_topleft(&edges.a, bary.x, &mut inside);
-    //                     test_topleft(&edges.b, bary.y, &mut inside);
-    //                     test_topleft(&edges.c, bary.z, &mut inside);
+                        if inside {
+                            z_test_and_shade(
+                                tri,
+                                a_uv, b_uv, c_uv,
+                                &bary,
+                                tex,
+                                screen,
+                                l_dot_n,
+                                x as usize,
+                                y as usize
+                            );
+                        }
 
-    //                     if inside {
-    //                         z_test_and_shade(
-    //                             tri,
-    //                             a_uv, b_uv, c_uv,
-    //                             &bary,
-    //                             tex,
-    //                             screen,
-    //                             l_dot_n,
-    //                             x as usize,
-    //                             y as usize
-    //                         );
-    //                     }
+                        // Step barycentric coordinates 1 pixel along x
+                        bary = bary + bary_step_x;
+                    }
 
-    //                     // Step barycentric coordinates 1 pixel along x
-    //                     bary = bary + bary_step_x;
-    //                 }
-
-    //                 // Step barycentric coordinates 1 pixel along y
-    //                 bary_row = bary_row + bary_step_y;
-    //             }
-    //         },
-    //         _ => ()
-    //     }
-    // }
-
-    let mut bary_row = bary_bl;
-
-    // println!("{:?}", bounds.tr - bounds.bl);
-    for y in bounds.bl.y..bounds.tr.y {
-        let mut bary = bary_row;
-        for x in bounds.bl.x..bounds.tr.x {
-            let mut inside: bool = true;
-
-            /*
-            If all three edge tests are positive, or we're a pixel right
-            on the edge of a top-left triangle, then we rasterize
-            */
-            test_topleft(&edges.a, bary.x, &mut inside);
-            test_topleft(&edges.b, bary.y, &mut inside);
-            test_topleft(&edges.c, bary.z, &mut inside);
-
-            if inside {
-                z_test_and_shade(
-                    tri,
-                    a_uv, b_uv, c_uv,
-                    &bary,
-                    tex,
-                    screen,
-                    l_dot_n,
-                    x as usize,
-                    y as usize
-                );
-            }
-
-            // Step barycentric coordinates 1 pixel along x
-            bary = bary + bary_step_x;
+                    // Step barycentric coordinates 1 pixel along y
+                    bary_row = bary_row + bary_step_y;
+                }
+            },
+            _ => ()
         }
-
-        // Step barycentric coordinates 1 pixel along y
-        bary_row = bary_row + bary_step_y;
     }
 }
 
@@ -505,27 +471,27 @@ fn z_test_and_shade(
     l_dot_n: f32, x: usize, y: usize) {
 
     // interpolate UV values with barycentric coordinates
-    // let z = 1.0 / (
-    //     tri.a.w * bary.x +
-    //     tri.b.w * bary.y +
-    //     tri.c.w * bary.z);
+    let z = 1.0 / (
+        tri.a.w * bary.x +
+        tri.b.w * bary.y +
+        tri.c.w * bary.z);
 
-    // let current_z = get_depth(screen, x, y);
+    let current_z = get_depth(screen, x, y);
 
-    // if z < current_z {
-        // let uv = 
-        // *a_uv * tri.a.w * bary.x +
-        // *b_uv * tri.b.w * bary.y +
-        // *c_uv * tri.c.w * bary.z;
+    if z < current_z {
+        let uv = 
+        *a_uv * tri.a.w * bary.x +
+        *b_uv * tri.b.w * bary.y +
+        *c_uv * tri.c.w * bary.z;
 
-        // let uv = uv * z;
+        let uv = uv * z;
 
         // let shaded_color = shade(&uv, tex, l_dot_n);
-
         let shaded_color = Color::blue();
+
         set_color(screen, x as usize, y as usize, &shaded_color);
-        // set_depth(screen, x as usize, y as usize, z);
-    // }
+        set_depth(screen, x as usize, y as usize, z);
+    }
 }
 
 fn shade(uv: &Vec2f, tex: &Vec<Color>, l_dot_n: f32) -> Color {
@@ -590,15 +556,15 @@ fn is_point_inside_triangle(tri: &Triangle, edges: &Triangle, tri_area_inv: f32,
     Giesen makes this into 3 >= checks on ints
 */
 fn test_topleft(edge: &Vec4f, w: f32, inside: &mut bool) {
-    *inside &= w > 0.0 // this is pretty fast on its own, of course not respecting top-left rule...
+    // *inside &= w > 0.0 // this is pretty fast on its own, of course not respecting top-left rule...
 
-    // if approx_eq(w, 0.0) {
-    //     // If lying on an edge, are we a top-left?
-    //     *inside &= (approx_eq(edge.y, 0.0) && edge.x > 0.0) || edge.y > 0.0;
-    // } else {
-    //     // If we're on the positive side of the half-plane defined by the edge
-    //     *inside &= w > 0.0;
-    // }
+    if approx_eq(w, 0.0) {
+        // If lying on an edge, are we a top-left?
+        *inside &= (approx_eq(edge.y, 0.0) && edge.x >= 0.0) || edge.y >= 0.0;
+    } else {
+        // If we're on the positive side of the half-plane defined by the edge
+        *inside &= w >= 0.0;
+    }
 }
 
 fn approx_eq(a: f32, b: f32) -> bool {

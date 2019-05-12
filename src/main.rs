@@ -25,14 +25,23 @@ use resources::*;
 */
 
 fn main() {
+    // let aabb = BoundingBox {
+    //     bl: Vec2i::new(20,24),
+    //     tr: Vec2i::new(131, 142),
+    // };
+
+    // for b in aabb.iter_sub_boxes(8) {
+    //     println!("{:?}", b);
+    // }
+
     start_renderloop().unwrap();
 }
 
 fn start_renderloop() -> Result<(), String> {
-    const WIDTH: u32 = 400 * 4;
-    const HEIGHT: u32 = 300 * 4;
-    // const WIDTH: u32 = 400;
-    // const HEIGHT: u32 = 300;
+    // const WIDTH: u32 = 400 * 4;
+    // const HEIGHT: u32 = 300 * 4;
+    const WIDTH: u32 = 400;
+    const HEIGHT: u32 = 300;
     // const WIDTH: u32 = 64;
     // const HEIGHT: u32 = 64;
 
