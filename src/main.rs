@@ -164,7 +164,7 @@ fn start_renderloop() -> Result<(), String> {
         // Todo: measure time passed since last frame, use to finetune sleep timing
         //let now = time::Instant::now;
         let delta_time = time::Duration::from_millis(16);
-        time += 0.016;
+        //time += 0.0001;
         thread::sleep(delta_time);
     }
 

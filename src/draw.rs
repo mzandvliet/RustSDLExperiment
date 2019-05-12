@@ -413,8 +413,9 @@ pub fn triangle_textured(
         signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
     );
 
-    // BUG! triangle_box_corner_overlaps isn't performing properly
-    // todo: debug overlap test results visually
+    // BUG! There's an off-by-one problem somewhere. It has to do with
+    // the same thing that caused us to expand triangle bounds by 1
+    // on all sides
 
     // Here we iterate over the bounding area of the triangle in n*n tiles
     // If no corners overlap triangle, we can skip it.
@@ -423,7 +424,7 @@ pub fn triangle_textured(
     // lie within tri, but perversely it made things much slower to have
     // a fast path and a slow path within this function that renders a single
     // triangle...
-    for tile in bounds.iter_sub_boxes(16) {
+    for tile in bounds.iter_sub_boxes(32) {
         let tile_bary_bl = bounds_bary_bl +
             bary_step_y * (tile.bl.y-bounds.bl.y) as f32 +
             bary_step_x * (tile.bl.x-bounds.bl.x) as f32;
@@ -466,8 +467,10 @@ pub fn triangle_textured(
                     bary_row = bary_row + bary_step_y;
                 }
             },
-            // 4 => rect(screen, &tile.bl, &tile.tr, Color::green()),
-            // 1...3 => rect(screen, &tile.bl, &tile.tr, Color::red()),
+            // 4 => rect(screen, &tile.bl, &tile.tr, Color::white()),
+            // 3 => rect(screen, &tile.bl, &tile.tr, Color::green()),
+            // 2 => rect(screen, &tile.bl, &tile.tr, Color::blue()),
+            // 1 => rect(screen, &tile.bl, &tile.tr, Color::red()),
             _ => ()
         }
     }
@@ -524,12 +527,12 @@ fn shade(uv: &Vec2f, tex: &Vec<Color>, l_dot_n: f32) -> Color {
 }
 
 fn count_triangle_box_corner_overlaps(bounds: &BoundingBox, edges: &Triangle, bary_bl: &Vec3f, bary_step_x: &Vec3f, bary_step_y: &Vec3f) -> u8 {
-    let bary_tl =  *bary_bl + *bary_step_y * bounds.height() as f32;
-    let bary_br =  *bary_bl + *bary_step_x * bounds.width() as f32;
-    let bary_tr =  bary_br + *bary_step_y * bounds.height() as f32;
+    let bary_tl = *bary_bl + *bary_step_y * (bounds.height()+1) as f32;
+    let bary_br = *bary_bl + *bary_step_x * (bounds.width()+1) as f32;
+    let bary_tr =  bary_br + *bary_step_y * (bounds.height()+1) as f32;
 
     let mut overlap_count: u8 = 0;
-    if is_point_inside_triangle(&edges, bary_bl) { overlap_count += 1; }
+    if is_point_inside_triangle(&edges,  bary_bl) { overlap_count += 1; }
     if is_point_inside_triangle(&edges, &bary_tl) { overlap_count += 1; }
     if is_point_inside_triangle(&edges, &bary_br) { overlap_count += 1; }
     if is_point_inside_triangle(&edges, &bary_tr) { overlap_count += 1; }
