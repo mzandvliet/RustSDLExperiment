@@ -148,7 +148,7 @@ pub struct BoundingBox {
 }
 
 impl BoundingBox {
-    pub fn iter(&self, step: i32) -> BoundingBoxIterator {
+    pub fn iter_sub_boxes(&self, step: i32) -> BoundingBoxIterator {
         BoundingBoxIterator {
             bounds: *self,
             step: step,
@@ -423,19 +423,18 @@ pub fn triangle_textured(
         signed_area(&tri.a, &tri.b, &pix_camspace_bl) * tri_area_inv
     );
 
-    tile_cache.fast_tiles.clear();
-    tile_cache.slow_tiles.clear();
-
     // Here we iterate over the bounding area of the triangle in n*n tiles
     // If all corners or a tile fall within a triangle, we can skip the
     // edge tests for all the pixels inside it.
     //
     // Todo: if none of the corners fall in the triangle, skip the tile
     // entirely
-    for tile in bounds.iter(8) {
+    tile_cache.fast_tiles.clear();
+    tile_cache.slow_tiles.clear();
+    for tile in bounds.iter_sub_boxes(32) {
         match triangle_box_corner_overlaps(tri, &edges, &tile, &screen_dims) {
             4 => tile_cache.fast_tiles.push(tile),
-            0...3 => tile_cache.slow_tiles.push(tile),
+            1...3 => tile_cache.slow_tiles.push(tile),
             _ => ()
         }
     }
@@ -443,6 +442,7 @@ pub fn triangle_textured(
     // let tile_count = ((bounds.tr.x - bounds.bl.x) / 8 + 1) * ((bounds.tr.y - bounds.bl.y) / 8 + 1);
     // println!("{}, {}, {}", tile_count, tile_cache.fast_tiles.len(), tile_cache.slow_tiles.len());
 
+    // This is reasonably speedy...
     for tile in &tile_cache.fast_tiles {
         // Fast path
 
@@ -454,7 +454,7 @@ pub fn triangle_textured(
             let mut bary = bary_row;
 
             for x in tile.bl.x..tile.tr.x {
-                shade(
+                z_test_and_shade(
                     tri,
                     a_uv, b_uv, c_uv,
                     &bary,
@@ -474,6 +474,7 @@ pub fn triangle_textured(
         }
     }
 
+    // Todo: But if we perform this bit *after* rasterizing the fast_tile batch, this gets mega-slow...
     for tile in &tile_cache.slow_tiles {
         // Slow path
             
@@ -496,7 +497,7 @@ pub fn triangle_textured(
                 test_topleft(&edges.c, bary.z, &mut inside);
 
                 if inside {
-                    shade(
+                    z_test_and_shade(
                         tri,
                         a_uv, b_uv, c_uv,
                         &bary,
@@ -519,7 +520,7 @@ pub fn triangle_textured(
 }
 
 // Todo: separate z testing from shading
-fn shade(
+fn z_test_and_shade(
     tri: &Triangle,
     a_uv: &Vec2f, b_uv: &Vec2f, c_uv: &Vec2f,
     bary: &Vec3f,
@@ -533,9 +534,9 @@ fn shade(
         tri.b.w * bary.y +
         tri.c.w * bary.z);
 
-    let curr_depth = get_depth(screen, x, y);
+    let current_z = get_depth(screen, x, y);
 
-    if z < curr_depth {
+    if z < current_z {
         let uv = 
         *a_uv * tri.a.w * bary.x +
         *b_uv * tri.b.w * bary.y +
@@ -543,24 +544,29 @@ fn shade(
 
         let uv = uv * z;
 
-        // transform UV values to texture space (taking care not to read out of bounds)
-        // todo: get texture dimensions from texture, instead of hardcoding
-        let uv_scr = ((uv.x * 63.999) as usize, ((1.0 - uv.y) * 63.999) as usize);
-
-        // read from texture, without filtering
-        let albedo = tex[uv_scr.0 * 64 + uv_scr.1];
-        // let albedo = Color::blue();
-
-        // shade pixel
-        let brightness = 0.1 + 0.9 * l_dot_n;
-        let shaded_color = Color::new(
-            (albedo.r as f32 * brightness) as u8,
-            (albedo.g as f32 * brightness) as u8,
-            (albedo.b as f32 * brightness) as u8);
+        let shaded_color = shade(&uv, tex, l_dot_n);
 
         set_color(screen, x as usize, y as usize, &shaded_color);
         set_depth(screen, x as usize, y as usize, z);
     }
+}
+
+fn shade(uv: &Vec2f, tex: &Vec<Color>, l_dot_n: f32) -> Color {
+    // transform UV values to texture space (taking care not to read out of bounds)
+    // todo: get texture dimensions from texture, instead of hardcoding
+    let uv_scr = ((uv.x * 63.999) as usize, ((1.0 - uv.y) * 63.999) as usize);
+
+    // read from texture, without filtering
+    let albedo = tex[uv_scr.0 * 64 + uv_scr.1];
+    // let albedo = Color::blue();
+
+    // shade pixel
+    let brightness = 0.1 + 0.9 * l_dot_n;
+    
+    Color::new(
+        (albedo.r as f32 * brightness) as u8,
+        (albedo.g as f32 * brightness) as u8,
+        (albedo.b as f32 * brightness) as u8)
 }
 
 fn triangle_box_corner_overlaps(tri: &Triangle, edges: &Triangle, bounds: &BoundingBox, screen_dims: &Vec2i) -> u8 {
@@ -608,10 +614,10 @@ fn is_point_inside_triangle(tri: &Triangle, edges: &Triangle, tri_area_inv: f32,
 fn test_topleft(edge: &Vec4f, w: f32, inside: &mut bool) {
      if approx_eq(w, 0.0) {
             // If lying on an edge, are we a top-left?
-            *inside &= (approx_eq(edge.y, 0.0) && edge.x >= 0.0) || edge.y >= 0.0;
+            *inside &= (approx_eq(edge.y, 0.0) && edge.x > 0.0) || edge.y > 0.0;
         } else {
             // If we're on the positive side of the half-plane defined by the edge
-            *inside &= w >= 0.0;
+            *inside &= w > 0.0;
         }
 }
 
@@ -830,7 +836,7 @@ mod tests {
             tr: Vec2i::new(126, 127),
         };
 
-        for b in aabb.iter(8) {
+        for b in aabb.iter_sub_boxes(8) {
             println!("{:?}", b);
         }
     }
